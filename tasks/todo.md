@@ -71,21 +71,22 @@ SQL Editorで実行して残りのAcceptance criteriaを満たす。**
 
 ---
 
-## Task 3: Next.js アプリ骨格を Vercel にデプロイし、Supabaseに接続する — **ローカルは完了、Vercelデプロイ待ち**
+## Task 3: Next.js アプリ骨格を Vercel にデプロイし、Supabaseに接続する — **完了（2026-08-08）**
 
 **Description:** Next.jsアプリの初期セットアップを行い、Vercelにデプロイする。
 Supabaseクライアントを組み込み、DBから1件読み取って表示するだけの最小ページを作る。
 
 **Acceptance criteria:**
 - [x] `web/` にNext.jsアプリが存在し、`npm run build` が通る
-- [ ] **（ユーザー作業待ち）** Vercelにデプロイされ、公開URLでアクセスできる
+- [x] Vercelにデプロイされ、公開URLでアクセスできる
+      （https://web-three-eta-ruwyukkmq1.vercel.app）
 - [x] トップページがSupabaseの `events` テーブルから件数を取得して表示する
-- [x] Supabase接続情報は `web/.env.local` に設定され、リポジトリにコミットされていない
-      （`.gitignore`で除外。Vercel環境変数への設定はデプロイ時に必要）
+- [x] Supabase接続情報は `web/.env.local`（ローカル）とVercelの環境変数（本番）に設定され、
+      リポジトリにはコミットされていない
 
 **Verification:**
 - [x] `npm run build` 成功、`npm run dev` でローカル起動し「収集済みイベント: 0 件」を表示（2026-08-08）
-- [ ] デプロイ後のURLにアクセスし、DBの内容が反映されていることを確認する **（ユーザー作業待ち）**
+- [x] 本番URLにアクセスし、同様に「収集済みイベント: 0 件」の表示を確認（2026-08-08）
 
 **Dependencies:** Task 2
 
