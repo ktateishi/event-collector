@@ -163,18 +163,26 @@ AI拡張語経由=探索」という単純ルールで confidence を仮判定�
 
 ---
 
-## Task 6: RemoteTriggerでルーチンをcron登録
+## Task 6: RemoteTriggerでルーチンをcron登録 — **登録完了、実行はegress制限でブロック中**
 
 **Description:** Task 5のプロンプトを使い、毎日07:00（JST）に実行されるルーチンを
 `RemoteTrigger` で登録する。
 
+→ ルーチンは登録済み（ID: `trig_01YN56ibMLELQSJqfhHVMMNm`、cron `0 22 * * *`）。
+手動実行したところ、**実行環境からVercelアプリへの外部通信がegressポリシーで
+ブロックされている**ことが判明（403、CONNECTトンネル拒否）。詳細と対応の選択肢は
+[secrets-handling.md](../docs/research/secrets-handling.md) の「重大な追加発見」参照。
+**ユーザー側での環境設定確認待ち。**
+
 **Acceptance criteria:**
-- [ ] cron式が `0 22 * * *`（UTC、07:00 JST相当）で登録されている
+- [x] cron式が `0 22 * * *`（UTC、07:00 JST相当）で登録されている
 - [ ] `RemoteTrigger action=run` による手動実行で正常終了する
+      **（egress制限によりブロック中。/api/keywords にすら到達できない）**
 
 **Verification:**
-- [ ] `RemoteTrigger action=list` で登録内容を確認する
+- [x] `RemoteTrigger action=get` で登録内容を確認した
 - [ ] 手動実行のログを確認し、エラーがないことを確認する
+      **（ユーザーがVercelアプリへのegress許可を確認/設定後に再実施）**
 
 **Dependencies:** Task 5
 
