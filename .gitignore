@@ -11,3 +11,4 @@ web/.vercel/
 
 # OS
 .DS_Store
+logs/
