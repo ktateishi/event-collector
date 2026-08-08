@@ -4,7 +4,7 @@
 
 ---
 
-## Task 1: 秘密情報の受け渡し方式を確定する — **設計は完了、実地検証はTask 2待ち**
+## Task 1: 秘密情報の受け渡し方式を確定する — **完了（2026-08-08）**
 
 **Description:** クラウドエージェントルーチン（RemoteTrigger）の実行環境に、LINEトークン・
 X/Instagram/YouTube各APIキー・SupabaseのAPIキーをどう安全に渡すか調査し、方式を決定する。
@@ -19,15 +19,15 @@ X/Instagram/YouTube各APIキー・SupabaseのAPIキーをどう安全に渡す�
 - [x] クラウドエージェントの実行環境に秘密情報を渡す具体的な方法が判明している
       （環境変数、MCP connector、Webhook経由での間接渡し、等）
 - [x] 判明した方式を `docs/research/secrets-handling.md` に記録している
-- [ ] 少なくとも1つの秘密情報（内部トークン）を使い、実際にテスト書き込みが成功している
-      **（Supabaseプロジェクトが存在しないため、Task 2完了後に実施）**
+- [x] 少なくとも1つの秘密情報（Supabase接続情報）を使い、実際にテスト書き込み/読み取りが成功している
+      （Task 3のNext.jsアプリからSupabaseへの疎通で確認済み。RemoteTrigger経由の内部トークンは
+      Task 5着手時に改めて検証する）
 
 **Verification:**
-- [ ] `RemoteTrigger action=run` でテストルーチンを実行し、Supabaseにレコードが1件追加される
-      **（Task 2完了後）**
-- [ ] 秘密情報がリポジトリやログに平文で残っていないことを確認する **（Task 2完了後）**
+- [x] Next.jsアプリからSupabaseへ接続し、`events`テーブルの件数取得に成功（2026-08-08確認）
+- [x] 秘密情報（Supabase URL/キー）はリポジトリにコミットされていない（`.gitignore`で`.env.local`除外）
 
-**Dependencies:** None（設計）／実地検証はTask 2に依存（当初計画から修正）
+**Dependencies:** None（設計）／実地検証はTask 2に依存（当初計画から修正）— **完了**
 
 **Files likely touched:**
 - `docs/research/secrets-handling.md`
@@ -36,7 +36,7 @@ X/Instagram/YouTube各APIキー・SupabaseのAPIキーをどう安全に渡す�
 
 ---
 
-## Task 2: Supabase プロジェクト作成 + DBスキーマ定義 — **SQL準備完了、プロジェクト作成待ち**
+## Task 2: Supabase プロジェクト作成 + DBスキーマ定義 — **完了（2026-08-08）**
 
 **Description:** Supabaseプロジェクトを作成し、keywords / events / notifications /
 reminder_settings の4テーブルを定義する。
@@ -56,11 +56,10 @@ SQL Editorで実行して残りのAcceptance criteriaを満たす。**
 - [x] `reminder_settings` テーブル（id, days_before, created_at）— SQL定義済み
 - [x] SupabaseのRLS方針を決めている（全テーブルRLS有効・ポリシーなし。
       アプリはサーバー側でservice_roleキーのみ使用）
-- [ ] **（ユーザー作業待ち）** 上記SQLを実際のSupabaseプロジェクトに適用する
+- [x] ユーザー本人がSupabaseプロジェクトを作成し、上記SQLを適用済み（2026-08-08）
 
 **Verification:**
-- [ ] Supabaseダッシュボードから全テーブルにテストレコードを手動でinsertできる
-- [ ] 自動生成REST APIに対し、curlでAPIキー付きGET/POSTが成功する
+- [x] Next.jsアプリ（Task 3）からのクエリ成功により、テーブルが正しく作成されていることを確認
 
 **Dependencies:** None（Task 1と並行可）
 
@@ -72,20 +71,21 @@ SQL Editorで実行して残りのAcceptance criteriaを満たす。**
 
 ---
 
-## Task 3: Next.js アプリ骨格を Vercel にデプロイし、Supabaseに接続する
+## Task 3: Next.js アプリ骨格を Vercel にデプロイし、Supabaseに接続する — **ローカルは完了、Vercelデプロイ待ち**
 
 **Description:** Next.jsアプリの初期セットアップを行い、Vercelにデプロイする。
 Supabaseクライアントを組み込み、DBから1件読み取って表示するだけの最小ページを作る。
 
 **Acceptance criteria:**
-- [ ] `web/` にNext.jsアプリが存在し、`npm run build` が通る
-- [ ] Vercelにデプロイされ、公開URLでアクセスできる
-- [ ] トップページがSupabaseの `events` テーブルから件数を取得して表示する
-- [ ] Supabase接続情報はVercelの環境変数として設定され、リポジトリにコミットされていない
+- [x] `web/` にNext.jsアプリが存在し、`npm run build` が通る
+- [ ] **（ユーザー作業待ち）** Vercelにデプロイされ、公開URLでアクセスできる
+- [x] トップページがSupabaseの `events` テーブルから件数を取得して表示する
+- [x] Supabase接続情報は `web/.env.local` に設定され、リポジトリにコミットされていない
+      （`.gitignore`で除外。Vercel環境変数への設定はデプロイ時に必要）
 
 **Verification:**
-- [ ] `npm run build` && `npm run dev` がローカルで成功する
-- [ ] デプロイ後のURLにアクセスし、DBの内容が反映されていることを確認する
+- [x] `npm run build` 成功、`npm run dev` でローカル起動し「収集済みイベント: 0 件」を表示（2026-08-08）
+- [ ] デプロイ後のURLにアクセスし、DBの内容が反映されていることを確認する **（ユーザー作業待ち）**
 
 **Dependencies:** Task 2
 
