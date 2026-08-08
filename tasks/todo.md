@@ -128,29 +128,36 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 5: 収集ルーチン v1（daily-routine.md）
+## Task 5: 収集ルーチン v1（daily-routine.md）— **完了（2026-08-08）**
 
 **Description:** クラウドエージェントルーチンに渡すプロンプトを作成する。Supabaseから
 登録キーワードを読み、AIでキーワードを拡張し、Web検索とYouTube公式APIでイベント情報を探索する
 （X/Instagramは Phase 4 で追加するため、v1では対象外）。「登録キーワード直接一致=確実、
 AI拡張語経由=探索」という単純ルールで confidence を仮判定し、重複を除去してSupabaseに書き込む。
 
+→ プロンプト本体に加え、それが依存する **`/api/ingest` エンドポイント**（重複除去・
+バリデーション・dry-runの実処理）も本タスクで実装した（plan.md想定外の追加スコープ。
+ルーチンが実際に呼び出す先が存在しないとプロンプトだけでは動作しないため）。
+
 **Acceptance criteria:**
-- [ ] `prompts/daily-routine.md` に、目的・入力・手順・出力形式・制約が明記されている
-- [ ] キーワード拡張（声優名・制作会社・コラボ相手・シリーズ名等）のロジックが具体例つきで
+- [x] `prompts/daily-routine.md` に、目的・入力・手順・出力形式・制約が明記されている
+- [x] キーワード拡張（声優名・制作会社・コラボ相手・シリーズ名等）のロジックが具体例つきで
       記述されている
-- [ ] 既存の `events` テーブルと照合し、同一イベントを再度書き込まない重複除去ロジックがある
-- [ ] dry-runモード（DB書き込みをスキップしてログのみ出力）がある
+- [x] 既存の `events` テーブルと照合し、同一イベントを再度書き込まない重複除去ロジックがある
+      （`lib/ingest.ts`、テスト済み）
+- [x] dry-runモード（DB書き込みをスキップしてログのみ出力）がある
 
 **Verification:**
-- [ ] テスト用キーワードを1件登録し、ルーチンを手動実行すると、関連イベントが
-      `events` テーブルに1件以上追加される
-- [ ] 同じルーチンをもう一度実行しても、同一イベントが重複して追加されない
+- [x] `npx vitest run` で `ingestEvents` の重複除去・バリデーション・dry-runをテスト済み（6件）
+- [x] 実際のSupabaseに対し、curlで認証チェック→dry-run→書き込み→重複skipの一連の流れを確認
+      （テストデータは確認後に削除済み）
+- [ ] RemoteTriggerでの実ルーチン実行による確認は **Task 6で実施**
 
 **Dependencies:** Task 1, Task 2, Task 4（テスト用キーワードの登録に使うため）
 
 **Files likely touched:**
 - `prompts/daily-routine.md`
+- `web/lib/ingest.ts`, `web/lib/ingest.test.ts`, `web/app/api/ingest/route.ts`（追加スコープ）
 
 **Estimated scope:** M
 
