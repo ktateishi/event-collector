@@ -26,7 +26,12 @@ X・Instagram連携は後続フェーズで追加する。
 
 1. `GET {{APP_URL}}/api/keywords` — 登録済みキーワード一覧を取得する
 2. Web検索（このエージェントに組み込まれた検索能力を使う）
-3. YouTube Data API v3（検索エンドポイント。無料枠の範囲で使用する）
+3. `GET {{APP_URL}}/api/search/youtube?q=<キーワード>` — YouTube検索のプロキシ。
+   `Authorization: Bearer {{INTERNAL_INGEST_TOKEN}}` が必要（`/api/ingest`と同じトークン）。
+   YouTube APIキーが未設定の場合は `{"results": [], "skipped": "..."}` が返るので、
+   その場合はYouTube検索をスキップしてWeb検索の結果のみで進めてよい
+   （実際のYouTube検索・APIキー管理はVercel側で行い、ルーチン自身はYouTubeの
+   APIキーを一切持たない。[secrets-handling.md](../docs/research/secrets-handling.md)参照）
 
 ## 手順
 
@@ -57,8 +62,9 @@ X・Instagram連携は後続フェーズで追加する。
 
 - Web検索で、公式サイトのNEWS欄・公式ブログ・個人ブログ等から、
   日付が明記された（または明確に推測できる）イベント情報を探す
-- YouTube Data API（`search.list`）で、該当キーワードに関連する動画・
+- `GET {{APP_URL}}/api/search/youtube?q=<キーワード>` で、該当キーワードに関連する動画・
   チャンネルの新着から、日付のあるイベント情報（配信イベント、記念放送等）を探す
+  （`results` が空、または `skipped` が返る場合はYouTube検索なしで進める）
 
 **「日付のあるイベント情報」の定義**: 開催日・受付開始日時・締切日時の
 いずれか1つ以上が明確に分かるもの。日付が一切分からない情報（単なる感想記事、
