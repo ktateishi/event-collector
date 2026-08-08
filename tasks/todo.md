@@ -36,20 +36,27 @@ X/Instagram/YouTube各APIキー・SupabaseのAPIキーをどう安全に渡す�
 
 ---
 
-## Task 2: Supabase プロジェクト作成 + DBスキーマ定義
+## Task 2: Supabase プロジェクト作成 + DBスキーマ定義 — **SQL準備完了、プロジェクト作成待ち**
 
 **Description:** Supabaseプロジェクトを作成し、keywords / events / notifications /
 reminder_settings の4テーブルを定義する。
 
+→ マイグレーションSQLを [supabase/migrations/0001_init.sql](../supabase/migrations/0001_init.sql)
+に作成済み。RLSは全テーブルで有効化しポリシーなし（default deny）、
+Next.jsサーバー側のみservice_roleキーでアクセスする方針とした。
+**ユーザー本人によるSupabaseアカウント・プロジェクト作成が完了次第、このSQLを
+SQL Editorで実行して残りのAcceptance criteriaを満たす。**
+
 **Acceptance criteria:**
-- [ ] `keywords` テーブル（id, keyword, created_at）
-- [ ] `events` テーブル（id, title, source, matched_keyword, matched_via[direct|expanded],
+- [x] `keywords` テーブル（id, keyword, created_at）— SQL定義済み
+- [x] `events` テーブル（id, title, source, matched_keyword, matched_via[direct|expanded],
       confidence[confirmed|exploratory], event_date, registration_opens_at, deadline_at,
-      url, created_at）
-- [ ] `notifications` テーブル（id, event_id, sent_at, type[daily|reminder]）— 重複通知防止用
-- [ ] `reminder_settings` テーブル（id, days_before, created_at）— 単一行運用でも可
-- [ ] SupabaseのRLS（Row Level Security）方針を決めている
-      （個人利用のためシンプルなAPIキー認証で十分か、要検討）
+      url, created_at）— SQL定義済み
+- [x] `notifications` テーブル（id, event_id, sent_at, type[daily|reminder]）— SQL定義済み
+- [x] `reminder_settings` テーブル（id, days_before, created_at）— SQL定義済み
+- [x] SupabaseのRLS方針を決めている（全テーブルRLS有効・ポリシーなし。
+      アプリはサーバー側でservice_roleキーのみ使用）
+- [ ] **（ユーザー作業待ち）** 上記SQLを実際のSupabaseプロジェクトに適用する
 
 **Verification:**
 - [ ] Supabaseダッシュボードから全テーブルにテストレコードを手動でinsertできる
@@ -58,8 +65,8 @@ reminder_settings の4テーブルを定義する。
 **Dependencies:** None（Task 1と並行可）
 
 **Files likely touched:**
-- `supabase/migrations/*.sql`（またはSupabaseダッシュボードでのスキーマ管理）
-- `docs/spec/event-collector-spec.md`（Code Style節のJSON例をこのスキーマに合わせて更新）
+- `supabase/migrations/0001_init.sql`（作成済み）
+- `docs/spec/event-collector-spec.md`（Code Style節のJSON例を更新済み）
 
 **Estimated scope:** S
 

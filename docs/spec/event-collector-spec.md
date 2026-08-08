@@ -101,20 +101,26 @@ web/                          Next.js アプリ（Vercelにデプロイ）
 
 このプロジェクトの「コード」の大半は自然言語プロンプトとJSONデータである。
 
-**JSONデータの命名規則（snake_case、ISO 8601日時）:**
+**DBスキーマ（[supabase/migrations/0001_init.sql](../../supabase/migrations/0001_init.sql)、
+snake_case、ISO 8601日時）:**
 ```json
 {
-  "event_id": "kimetsu-live-2026-09",
+  "id": "3fa4b1e2-...(uuid)",
   "title": "鬼滅の刃 ライブイベント",
   "source": "x.com/kimetsu_off",
+  "url": "https://x.com/kimetsu_off/status/...",
   "matched_keyword": "鬼滅の刃",
   "matched_via": "expanded",
+  "confidence": "confirmed",
   "event_date": "2026-09-15",
   "registration_opens_at": "2026-08-20T10:00:00+09:00",
-  "notified_at": "2026-08-07T07:00:00+09:00",
-  "confidence": "confirmed"
+  "deadline_at": "2026-09-01T23:59:59+09:00",
+  "created_at": "2026-08-07T07:00:00+09:00"
 }
 ```
+
+通知履歴（`notifications`）は `events` と分離したテーブルで管理する
+（重複送信防止のため、送信済みイベントID×種別の組で一意）。
 
 **プロンプト（`prompts/daily-routine.md`）の構成規約:** 見出しで
 「目的」「入力（読むべきファイル）」「手順」「出力形式」「制約」を明確に分ける。
