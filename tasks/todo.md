@@ -128,7 +128,7 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 5: 収集ロジック v2（Vertex AI Gemini呼び出し）— **方式再変更、実装中**
+## Task 5: 収集ロジック v2（Vertex AI Gemini呼び出し）— **コード実装完了、実地検証待ち**
 
 **Description:** ~~クラウドエージェントルーチンのプロンプト~~ を廃止し、
 **GCP Vertex AI（Gemini + Google検索グラウンディング）への単発API呼び出し**で
@@ -140,18 +140,20 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 `prompts/daily-routine.md` と `scripts/run-daily-routine.sh` は廃止する。
 
 **Acceptance criteria:**
-- [ ] `web/lib/gemini.ts` に、キーワードを受け取りVertex AIへリクエストして
+- [x] `web/lib/gemini.ts` に、キーワードを受け取りVertex AIへリクエストして
       候補イベント配列（`CandidateEvent[]`、`lib/ingest.ts`の型と一致）を返す関数がある
-- [ ] プロンプト（Gemini向け）に、キーワード拡張の観点（声優名・制作会社・コラボ相手等）と
-      「日付のあるイベント情報」の定義が具体例つきで含まれている
-- [ ] Google検索グラウンディングと構造化出力（JSON）を同一リクエストで使用する
-- [ ] 認証情報（GCPサービスアカウントキー）はVercelの環境変数として保持し、
-      リポジトリにコミットしない
+- [x] プロンプト（`web/lib/gemini-prompt.ts`）に、キーワード拡張の観点
+      （声優名・制作会社・コラボ相手等）と「日付のあるイベント情報」の定義が
+      具体例つきで含まれている
+- [x] Google検索グラウンディングと構造化出力（JSON schema指定）を同一リクエストで使用する
+- [x] 認証情報（GCPサービスアカウントキー）はVercelの環境変数として保持する設計
+      （`.env.example`に追記済み）。リポジトリにはコミットしない
 
 **Verification:**
-- [ ] モックを使ったユニットテストで、レスポンス解析・エラーハンドリングを確認
+- [x] モックを使ったユニットテストで、認証・リクエスト内容・レスポンス解析・
+      エラーハンドリングを確認（`gemini.test.ts`, `gemini-prompt.test.ts`、計11件）
 - [ ] 実際のGCPプロジェクトに対し、1キーワードで呼び出し、妥当な候補が返ることを確認
-      （ユーザーのGCPサービスアカウントキー設定待ち）
+      **（ユーザーのGCPプロジェクトID・サービスアカウントキー設定待ち）**
 
 **Dependencies:** Task 1, Task 2
 
@@ -165,15 +167,16 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 6: Vercel Cronへの登録
+## Task 6: Vercel Cronへの登録 — **設定完了、実地検証はTask 5のGCP設定待ち**
 
 **Description:** Task 5のロジックを、Vercelの `vercel.json` の `crons` 設定で
 毎日07:00 JST（`0 22 * * *`、UTC）に自動実行されるようにする。
 
 **Acceptance criteria:**
-- [ ] `vercel.json` に cron設定があり、`/api/cron/collect` を毎日07:00 JSTに叩く
-- [ ] cronエンドポイントは `CRON_SECRET` 等でVercel Cron以外からの呼び出しを拒否する
-- [ ] 本番環境で手動トリガー（またはVercelダッシュボードからの実行）により正常終了する
+- [x] `vercel.json` に cron設定があり、`/api/cron/collect` を毎日07:00 JSTに叩く
+- [x] cronエンドポイントは `CRON_SECRET` でVercel Cron以外からの呼び出しを拒否する
+      （ローカル・Vercel双方に設定済み）
+- [ ] 本番環境で手動トリガーにより正常終了する **（GCP認証情報設定後に実施）**
 
 **Verification:**
 - [ ] 本番URLの `/api/cron/collect` に正しい認証で叩き、Supabaseにイベントが反映されることを確認
