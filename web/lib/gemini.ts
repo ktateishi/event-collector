@@ -9,30 +9,6 @@ export type GeminiEnv = {
   serviceAccountKeyJson: string;
 };
 
-const EVENT_RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    events: {
-      type: "array",
-      items: {
-        type: "object",
-        properties: {
-          title: { type: "string" },
-          source: { type: "string" },
-          url: { type: "string" },
-          matched_via: { type: "string", enum: ["direct", "expanded"] },
-          matched_term: { type: "string" },
-          event_date: { type: ["string", "null"] },
-          registration_opens_at: { type: ["string", "null"] },
-          deadline_at: { type: ["string", "null"] },
-        },
-        required: ["title", "source", "matched_via", "matched_term"],
-      },
-    },
-  },
-  required: ["events"],
-};
-
 async function getAccessToken(serviceAccountKeyJson: string): Promise<string> {
   const credentials = JSON.parse(serviceAccountKeyJson);
   const auth = new GoogleAuth({
@@ -57,13 +33,13 @@ export async function collectEventsForKeyword(
 
   const url = `https://${env.location}-aiplatform.googleapis.com/v1/projects/${env.projectId}/locations/${env.location}/publishers/google/models/${env.model}:generateContent`;
 
+  // 注意: Vertex AI(gemini-2.5-flash)ではSearchツールと構造化出力(responseSchema/
+  // responseMimeType)を同一リクエストで併用できない（400 "controlled generation is
+  // not supported with Search tool"）。そのためJSON形式の指定はプロンプト側の指示のみに
+  // 頼り、生成テキストを parseGeminiCandidates で緩く解析する。
   const requestBody = {
     contents: [{ role: "user", parts: [{ text: buildEventPrompt(keyword) }] }],
     tools: [{ googleSearch: {} }],
-    generationConfig: {
-      responseMimeType: "application/json",
-      responseSchema: EVENT_RESPONSE_SCHEMA,
-    },
   };
 
   const res = await fetch(url, {

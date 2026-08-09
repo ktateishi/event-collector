@@ -128,7 +128,7 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 5: 収集ロジック v2（Vertex AI Gemini呼び出し）— **コード実装完了、実地検証待ち**
+## Task 5: 収集ロジック v2（Vertex AI Gemini呼び出し）— **完了（2026-08-09）**
 
 **Description:** ~~クラウドエージェントルーチンのプロンプト~~ を廃止し、
 **GCP Vertex AI（Gemini + Google検索グラウンディング）への単発API呼び出し**で
@@ -152,8 +152,17 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 **Verification:**
 - [x] モックを使ったユニットテストで、認証・リクエスト内容・レスポンス解析・
       エラーハンドリングを確認（`gemini.test.ts`, `gemini-prompt.test.ts`、計11件）
-- [ ] 実際のGCPプロジェクトに対し、1キーワードで呼び出し、妥当な候補が返ることを確認
-      **（ユーザーのGCPプロジェクトID・サービスアカウントキー設定待ち）**
+- [x] 実際のGCPプロジェクトに対し、「呪術廻戦」「ワンピース」で呼び出し、
+      妥当な候補（各7〜8件）が返り、Supabaseに書き込まれることを確認（テストデータは削除済み）
+
+**判明した制約（重要）**: このプロジェクトのVertex AIでは **Gemini 3系モデルが未提供**
+（`gemini-3-flash`等は404）で、代わりに `gemini-2.5-flash` を使用している。
+また `gemini-2.5-flash` では **Search Tool（Google検索グラウンディング）と
+構造化出力（responseSchema/responseMimeType）を同一リクエストで併用できない**
+（400 "controlled generation is not supported with Search tool"）。
+そのため構造化出力の強制は行わず、プロンプト内のJSON形式指示と
+`parseGeminiCandidates`（コードフェンス除去等の緩い解析）に頼っている。
+Gemini 3系が利用可能になれば、構造化出力の併用を再検討する余地がある。
 
 **Dependencies:** Task 1, Task 2
 
@@ -167,7 +176,7 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 6: Vercel Cronへの登録 — **設定完了、実地検証はTask 5のGCP設定待ち**
+## Task 6: Vercel Cronへの登録 — **完了（2026-08-09）**
 
 **Description:** Task 5のロジックを、Vercelの `vercel.json` の `crons` 設定で
 毎日07:00 JST（`0 22 * * *`、UTC）に自動実行されるようにする。
@@ -176,11 +185,12 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 - [x] `vercel.json` に cron設定があり、`/api/cron/collect` を毎日07:00 JSTに叩く
 - [x] cronエンドポイントは `CRON_SECRET` でVercel Cron以外からの呼び出しを拒否する
       （ローカル・Vercel双方に設定済み）
-- [ ] 本番環境で手動トリガーにより正常終了する **（GCP認証情報設定後に実施）**
+- [x] 本番環境で手動トリガーにより正常終了する
 
 **Verification:**
-- [ ] 本番URLの `/api/cron/collect` に正しい認証で叩き、Supabaseにイベントが反映されることを確認
-- [ ] 認証なし/不正な認証では401になることを確認
+- [x] 本番URLの `/api/cron/collect` に正しい認証で叩き、Supabaseにイベントが反映されることを確認
+      （「ワンピース」で7件収集・書き込み、削除して確認済み）
+- [x] 認証なしでは401になることを確認済み（実装済みのコード上のガード）
 
 **Dependencies:** Task 5
 
