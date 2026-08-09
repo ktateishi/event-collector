@@ -438,11 +438,11 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 ## Task 16: ノイズ判定基準のチューニング
 
 **Description:** MVP運用開始後、実際に収集されたイベントの確実/探索の分類結果を見ながら、
-`daily-routine.md` の判定ロジックを調整する。
+判定ロジックを調整する。
 
 **Acceptance criteria:**
 - [ ] 数日分の運用結果をレビューし、誤分類（探索なのに確実、逆も）の傾向を洗い出している
-- [ ] 判定基準を `daily-routine.md` に反映し、改善が確認できる
+- [ ] 判定基準を `web/lib/gemini-prompt.ts`（`buildExtractionPrompt`）に反映し、改善が確認できる
 
 **Verification:**
 - [ ] チューニング後の数日間で、誤分類の体感が減っている（定性確認）
@@ -450,7 +450,7 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 **Dependencies:** Task 5, Task 6（一定期間の運用実績が必要）
 
 **Files likely touched:**
-- `prompts/daily-routine.md`
+- `web/lib/gemini-prompt.ts`
 
 **Estimated scope:** S
 
@@ -461,3 +461,67 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 - [ ] [event-collector-spec.md](../docs/spec/event-collector-spec.md) の Success Criteria を
       すべて満たす
 - [ ] 人間によるレビュー、実運用開始
+
+---
+
+## Phase 5: 使い勝手・品質改善（バックログ、2026-08-09追加）
+
+ユーザーが実際に使ってみたフィードバックから追加。優先順位・着手順は未確定
+（次回の会話で確認する）。
+
+### Task 17: イベント一覧のカテゴリ分け表示
+
+**Description:** `/events` が全件フラットな一覧で、どのキーワード（バイオハザード／
+エヴァンゲリオン等）についての情報か一見して分かりにくいとの指摘。
+登録キーワードごとにグループ化して表示する。
+
+**課題**: `events.matched_keyword` は「実際に一致した語」（directならキーワード自体、
+expandedなら関連語。例: "MAPPA"）であり、**どの登録キーワードのために収集したか**とは
+別概念。カテゴリ分けには「収集対象の登録キーワード」を別途保持する必要がある
+（例: `events` テーブルに `keyword_id` または `source_keyword` 列を追加し、
+`collectEventsForKeyword` 呼び出し元でセットする）。
+
+**Acceptance criteria:**
+- [ ] `events` テーブルに収集対象キーワードを識別する列を追加する
+- [ ] `/api/cron/collect` が新規イベント作成時にその列をセットする
+- [ ] `/events` が登録キーワードごとにグループ化して表示される
+
+**Dependencies:** Task 7, Task 5
+
+**Estimated scope:** M
+
+---
+
+### Task 18: 類似・重複イベントのグルーピング
+
+**Description:** 同一イベントの開催地違い（例: ALL OF EVANGELION 名古屋会場/大阪会場）や
+公開地域違い（全米公開/日本公開）が、別々の行として大量に並び見通しが悪いとの指摘。
+これらはtitleが異なるため現在の重複除去（Task 5で修正済み、title完全一致）では
+1件にまとまらない。
+
+**方針候補（要ユーザー確認）**:
+- (a) UI側で「同じ日付・同じ登録キーワードのイベント群」をアコーディオンでまとめて表示する
+- (b) タイトルの類似度（会場名・地域名を除いた部分の一致）でグルーピングする
+- (c) 抽出フェーズのプロンプトに「同一イベントの複数会場・複数地域はまとめて1件にする」
+  指示を追加する（Gemini側での統合）
+
+**Acceptance criteria:** 方針確定後に記述する
+
+**Dependencies:** Task 7, Task 5
+
+**Estimated scope:** M〜L（方針による）
+
+---
+
+### Task 19: Web画面のデザイン改善
+
+**Description:** 現状はテキストとリンクのみでデザイン性がなく、公開できる品質ではない
+との指摘。`/keywords`・`/events`・`/events/[id]` に最低限のビジュアルデザイン
+（レイアウト・配色・タイポグラフィ・カード表示等）を適用する。
+
+**Acceptance criteria:** スコープ確定後に記述する（フルデザインシステムを入れるか、
+最低限見られる状態にするかで規模が大きく変わるため要相談）
+
+**Dependencies:** Task 7, Task 4, Task 11（設定画面）
+
+**Estimated scope:** M〜L（スコープによる）
