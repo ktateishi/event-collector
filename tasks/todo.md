@@ -160,14 +160,21 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 また `gemini-2.5-flash` では **Search Tool（Google検索グラウンディング）と
 構造化出力（responseSchema/responseMimeType）を同一リクエストで併用できない**
 （400 "controlled generation is not supported with Search tool"）。
-そのため構造化出力の強制は行わず、プロンプト内のJSON形式指示と
-`parseGeminiCandidates`（コードフェンス除去等の緩い解析）に頼っている。
-Gemini 3系が利用可能になれば、構造化出力の併用を再検討する余地がある。
+
+**精度改善（2026-08-09、ユーザー報告により再修正）**: 初回実装（1回のAPI呼び出しで
+検索+抽出）は、モデルが文章として書いたURLの多くがリンク切れ・誤ページになる
+精度問題があった。**3段階パイプライン**（①`gemini-search.ts`で検索しgroundingChunksの
+中継URLを実URLに解決 → ②`fetch-page.ts`で実ページ本文を取得 → ③`gemini-extract.ts`で
+実ページ本文から構造化抽出、URLは文字列でなくpage_id番号で返させて取り違えを防止）
+に再設計し、検証したURLがすべて実在（HTTP 200）することを確認した
+（修正前は17件中5件が404だったのに対し、修正後は4件中0件）。詳細は
+[secrets-handling.md](../docs/research/secrets-handling.md) の「精度改善」参照。
 
 **Dependencies:** Task 1, Task 2
 
 **Files likely touched:**
-- `web/lib/gemini.ts`, `web/lib/gemini.test.ts`（新規）
+- `web/lib/gemini-client.ts`, `web/lib/gemini-search.ts`, `web/lib/gemini-extract.ts`,
+  `web/lib/gemini.ts`（オーケストレーター）, `web/lib/fetch-page.ts`（新規）＋各テスト
 - `web/app/api/cron/collect/route.ts`（新規、Vercel Cronから起動）
 - `web/vercel.json`（新規、cron設定）
 - `prompts/daily-routine.md`, `scripts/run-daily-routine.sh`（削除）
