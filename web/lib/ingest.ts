@@ -21,8 +21,16 @@ export type IngestResult = {
 const VALID_MATCHED_VIA = new Set(["direct", "expanded"]);
 const VALID_CONFIDENCE = new Set(["confirmed", "exploratory"]);
 
-function dedupeKey(title: string, source: string): string {
-  return `${title.trim().toLowerCase()}|${source.trim().toLowerCase()}`;
+/**
+ * 重複判定はtitleのみで行う（sourceは含めない）。同一イベントが複数の
+ * ニュースサイト（PR TIMES・ファミ通・公式サイト等）から別々に報じられ、
+ * それぞれ抽出されるケースが実運用で確認されたため。sourceも含めていた旧実装では
+ * 「取得元が違うだけの同一イベント」を別イベントとして重複登録してしまっていた。
+ * タイトルの表記ゆれ（会場名や日程が入っている場合等）は別イベントとして残る
+ * トレードオフを許容している。
+ */
+function dedupeKey(title: string): string {
+  return title.trim().toLowerCase();
 }
 
 function isValid(candidate: CandidateEvent): boolean {
@@ -43,16 +51,14 @@ export async function ingestEvents(
   candidates: CandidateEvent[],
   options: { dryRun: boolean }
 ): Promise<IngestResult> {
-  const { data: existingRows, error } = await client.from("events").select("title, source");
+  const { data: existingRows, error } = await client.from("events").select("title");
 
   if (error) {
     throw new Error(error.message);
   }
 
   const seen = new Set(
-    ((existingRows ?? []) as { title: string; source: string }[]).map((row) =>
-      dedupeKey(row.title, row.source)
-    )
+    ((existingRows ?? []) as { title: string }[]).map((row) => dedupeKey(row.title))
   );
 
   const result: IngestResult = { inserted: [], wouldInsert: [], skipped: [] };
@@ -63,7 +69,7 @@ export async function ingestEvents(
       continue;
     }
 
-    const key = dedupeKey(candidate.title, candidate.source);
+    const key = dedupeKey(candidate.title);
 
     if (seen.has(key)) {
       result.skipped.push({ candidate, reason: "duplicate" });

@@ -3,7 +3,7 @@ import { ingestEvents, type CandidateEvent } from "./ingest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 function fakeClient(
-  existingRows: { title: string; source: string }[],
+  existingRows: { title: string }[],
   insertBehavior?: (row: unknown) => { data: unknown; error: { message: string } | null }
 ) {
   const from = vi.fn().mockReturnValue({
@@ -40,13 +40,23 @@ describe("ingestEvents", () => {
     expect(client.from).toHaveBeenCalledWith("events");
   });
 
-  it("skips events that already exist (same title + source)", async () => {
-    const client = fakeClient([{ title: validCandidate.title, source: validCandidate.source }]);
+  it("skips events that already exist (same title, regardless of source)", async () => {
+    const client = fakeClient([{ title: validCandidate.title }]);
 
     const result = await ingestEvents(client, [validCandidate], { dryRun: false });
 
     expect(result.inserted).toHaveLength(0);
     expect(result.skipped).toHaveLength(1);
+    expect(result.skipped[0].reason).toBe("duplicate");
+  });
+
+  it("treats the same title from a different source as a duplicate (the reported bug)", async () => {
+    const client = fakeClient([{ title: validCandidate.title }]);
+    const sameTitleDifferentSource = { ...validCandidate, source: "another-site.example" };
+
+    const result = await ingestEvents(client, [sameTitleDifferentSource], { dryRun: false });
+
+    expect(result.inserted).toHaveLength(0);
     expect(result.skipped[0].reason).toBe("duplicate");
   });
 
