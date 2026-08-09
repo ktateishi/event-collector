@@ -1,11 +1,36 @@
 import type { CandidateEvent } from "./ingest";
 
 /**
- * 検索フェーズ用プロンプト。テキスト出力自体は使わず、groundingChunksから
- * 実URLを回収するために使う（gemini-search.ts参照）。そのため出力形式の
- * 厳密な指定はしていない。ここでの目的は「良い検索クエリを複数実行させること」。
+ * 「確実に検索すべき」定番クエリのテンプレート。モデルの自由な判断だけに任せると、
+ * 「キーワード + イベント」のような最も当たり前で検索結果の上位に出るクエリすら
+ * 検索されないことがある（実運用で判明した抜け漏れ）。そのためコード側で
+ * クエリを明示的に列挙し、モデルにはそれを「実行させる」だけにする。
  */
-export function buildSearchPrompt(keyword: string): string {
+const CORE_QUERY_SUFFIXES = ["イベント", "展覧会", "コラボ", "グッズ", "チケット"];
+
+/**
+ * 確実に実行すべき定番クエリ用プロンプト。テキスト出力自体は使わず、
+ * groundingChunksから実URLを回収するために使う（gemini-search.ts参照）。
+ */
+export function buildCoreSearchPrompt(keyword: string): string {
+  const queries = CORE_QUERY_SUFFIXES.map((suffix) => `${keyword} ${suffix}`);
+
+  return `以下の検索クエリを**すべて**Google検索で実行してください（省略しないこと）。
+それぞれの検索結果から、日付のあるイベント情報（放送・イベント・グッズ発売・
+コラボ・チケット先行受付・締切など）を調べてください。
+
+${queries.map((q) => `- 「${q}」`).join("\n")}
+
+見つけた情報を日本語で簡潔にまとめてください。`;
+}
+
+/**
+ * 関連語（声優・スタジオ・コラボ相手等）を使った拡張検索用プロンプト。
+ * こちらはモデル自身の知識・判断による拡張が必要なため、定番クエリとは別に
+ * 自由記述の指示にしている。テキスト出力自体は使わず、groundingChunksから
+ * 実URLを回収するために使う（gemini-search.ts参照）。
+ */
+export function buildExpansionSearchPrompt(keyword: string): string {
   return `「${keyword}」というアニメ・キャラクター等に関連する、日付のある最新イベント情報
 （放送・イベント・グッズ発売・コラボ・チケット先行受付・締切など）をGoogle検索で
 幅広く調べてください。

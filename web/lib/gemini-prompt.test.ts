@@ -1,9 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { buildExtractionPrompt, buildSearchPrompt, parseGeminiCandidates } from "./gemini-prompt";
+import {
+  buildCoreSearchPrompt,
+  buildExpansionSearchPrompt,
+  buildExtractionPrompt,
+  parseGeminiCandidates,
+} from "./gemini-prompt";
 
-describe("buildSearchPrompt", () => {
+describe("buildCoreSearchPrompt", () => {
+  it("includes obvious query templates like 'keyword イベント'", () => {
+    const prompt = buildCoreSearchPrompt("バイオハザード");
+
+    expect(prompt).toContain("バイオハザード イベント");
+    expect(prompt).toContain("バイオハザード 展覧会");
+    expect(prompt).toContain("バイオハザード グッズ");
+  });
+});
+
+describe("buildExpansionSearchPrompt", () => {
   it("includes the keyword and asks for date-bearing events", () => {
-    const prompt = buildSearchPrompt("鬼滅の刃");
+    const prompt = buildExpansionSearchPrompt("鬼滅の刃");
 
     expect(prompt).toContain("鬼滅の刃");
     expect(prompt).toContain("日付");

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, beforeEach } from "vitest";
 
 const { mockCallGenerateContent, mockResolveGroundingUrl } = vi.hoisted(() => ({
   mockCallGenerateContent: vi.fn(),
@@ -17,60 +17,59 @@ const env = {
   serviceAccountKeyJson: "{}",
 };
 
+function chunksResponse(urls: string[]) {
+  return {
+    candidates: [
+      { groundingMetadata: { groundingChunks: urls.map((uri) => ({ web: { uri } })) } },
+    ],
+  };
+}
+
 describe("searchGroundingUrls", () => {
-  it("resolves groundingChunks redirect URLs to real URLs, deduped", async () => {
-    mockCallGenerateContent.mockResolvedValue({
-      candidates: [
-        {
-          groundingMetadata: {
-            groundingChunks: [
-              { web: { uri: "https://redirect/a", title: "a.example" } },
-              { web: { uri: "https://redirect/b", title: "b.example" } },
-              { web: { uri: "https://redirect/a-dup", title: "a.example again" } },
-            ],
-          },
-        },
-      ],
-    });
-    mockResolveGroundingUrl.mockImplementation(async (u: string) => {
-      if (u === "https://redirect/a" || u === "https://redirect/a-dup") {
-        return "https://real-a.example/page";
-      }
-      return "https://real-b.example/page";
-    });
-
-    const result = await searchGroundingUrls(env, "鬼滅の刃");
-
-    expect(result).toEqual(["https://real-a.example/page", "https://real-b.example/page"]);
-  });
-
-  it("calls Vertex AI with the googleSearch tool enabled", async () => {
-    mockCallGenerateContent.mockResolvedValue({ candidates: [{}] });
-
-    await searchGroundingUrls(env, "鬼滅の刃");
-
-    const [, body] = mockCallGenerateContent.mock.calls.at(-1)!;
-    expect(body.tools).toEqual([{ googleSearch: {} }]);
-    expect(body.contents[0].parts[0].text).toContain("鬼滅の刃");
-  });
-
-  it("returns an empty array when there is no grounding metadata", async () => {
-    mockCallGenerateContent.mockResolvedValue({ candidates: [{}] });
-
-    expect(await searchGroundingUrls(env, "鬼滅の刃")).toEqual([]);
-  });
-
-  it("caps the number of URLs returned", async () => {
-    const chunks = Array.from({ length: 10 }, (_, i) => ({
-      web: { uri: `https://redirect/${i}` },
-    }));
-    mockCallGenerateContent.mockResolvedValue({
-      candidates: [{ groundingMetadata: { groundingChunks: chunks } }],
-    });
+  beforeEach(() => {
+    vi.clearAllMocks();
     mockResolveGroundingUrl.mockImplementation(async (u: string) => u.replace("redirect", "real"));
+  });
 
-    const result = await searchGroundingUrls(env, "鬼滅の刃");
+  it("makes two calls (core query prompt + expansion prompt) and merges/dedupes results", async () => {
+    mockCallGenerateContent
+      .mockResolvedValueOnce(chunksResponse(["https://redirect/a", "https://redirect/b"]))
+      .mockResolvedValueOnce(chunksResponse(["https://redirect/b", "https://redirect/c"]));
 
-    expect(result.length).toBeLessThanOrEqual(6);
+    const result = await searchGroundingUrls(env, "バイオハザード");
+
+    expect(mockCallGenerateContent).toHaveBeenCalledTimes(2);
+    expect(result).toEqual(["https://real/a", "https://real/b", "https://real/c"]);
+  });
+
+  it("includes the literal 'keyword イベント' query in the core-query call", async () => {
+    mockCallGenerateContent.mockResolvedValue(chunksResponse([]));
+
+    await searchGroundingUrls(env, "バイオハザード");
+
+    const [, coreBody] = mockCallGenerateContent.mock.calls[0];
+    expect(coreBody.contents[0].parts[0].text).toContain("バイオハザード イベント");
+    expect(coreBody.tools).toEqual([{ googleSearch: {} }]);
+  });
+
+  it("still returns results if one of the two calls fails", async () => {
+    mockCallGenerateContent
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce(chunksResponse(["https://redirect/x"]));
+
+    const result = await searchGroundingUrls(env, "バイオハザード");
+
+    expect(result).toEqual(["https://real/x"]);
+  });
+
+  it("caps the total number of URLs returned", async () => {
+    const many = Array.from({ length: 8 }, (_, i) => `https://redirect/${i}`);
+    mockCallGenerateContent
+      .mockResolvedValueOnce(chunksResponse(many))
+      .mockResolvedValueOnce(chunksResponse([]));
+
+    const result = await searchGroundingUrls(env, "バイオハザード");
+
+    expect(result.length).toBeLessThanOrEqual(12);
   });
 });
