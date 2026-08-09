@@ -13,8 +13,14 @@
 
 ## Architecture Decisions
 
-- **収集は毎日実行のクラウドエージェントルーチン（Anthropic RemoteTrigger）が担う**。
-  自前のスクレイパー・NLPロジックは書かず、AI自身に検索・拡張・優先度判定を任せる
+- **収集はVercel Cronから起動される単発API呼び出し（GCP Vertex AI: Gemini +
+  Google検索グラウンディング）が担う**（2026-08-08、2度の方針転換を経て確定）。
+  自前のスクレイパー・NLPロジックは書かず、キーワード拡張・検索・構造化抽出を
+  Geminiへの1回の呼び出しに任せる。当初検討したAnthropicクラウドエージェント
+  ルーチン(RemoteTrigger)はegress制限で、ローカル実行(`claude -p`+launchd)は
+  Macのスリープ依存で、それぞれ不採用になった。自律型AIエージェントという設計自体をやめ、
+  Vercelの常時稼働環境で完結する単発API呼び出しに変更したことで両方の問題を回避している。
+  詳細は [secrets-handling.md](../docs/research/secrets-handling.md) 参照
 - **Webサーバー（Next.js on Vercel）+ Supabase(Postgres) を状態・表示の中心に置く**。
   収集ルーチンはSupabaseの自動生成REST APIに直接書き込み、カスタムAPIを増やさない
 - **LINE通知はWebサーバーが仲介**する（ルーチンが直接LINE APIを叩かない）。

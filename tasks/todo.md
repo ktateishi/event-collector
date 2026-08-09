@@ -128,71 +128,62 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 5: 収集ルーチン v1（daily-routine.md）— **完了（2026-08-08）**
+## Task 5: 収集ロジック v2（Vertex AI Gemini呼び出し）— **方式再変更、実装中**
 
-**Description:** クラウドエージェントルーチンに渡すプロンプトを作成する。Supabaseから
-登録キーワードを読み、AIでキーワードを拡張し、Web検索とYouTube公式APIでイベント情報を探索する
-（X/Instagramは Phase 4 で追加するため、v1では対象外）。「登録キーワード直接一致=確実、
-AI拡張語経由=探索」という単純ルールで confidence を仮判定し、重複を除去してSupabaseに書き込む。
+**Description:** ~~クラウドエージェントルーチンのプロンプト~~ を廃止し、
+**GCP Vertex AI（Gemini + Google検索グラウンディング）への単発API呼び出し**で
+キーワード拡張・Web検索・構造化抽出を行うロジックを実装する。
 
-→ プロンプト本体に加え、それが依存する **`/api/ingest` エンドポイント**（重複除去・
-バリデーション・dry-runの実処理）も本タスクで実装した（plan.md想定外の追加スコープ。
-ルーチンが実際に呼び出す先が存在しないとプロンプトだけでは動作しないため）。
+→ 経緯: RemoteTrigger（egress制限）→ ローカル`claude -p`+launchd（Macスリープ依存）と
+2度不採用になり、「自律型AIエージェント」という設計自体をやめてVercelの通常の
+サーバーレス関数から単発API呼び出しを行う方式に確定した（2026-08-08）。
+`prompts/daily-routine.md` と `scripts/run-daily-routine.sh` は廃止する。
 
 **Acceptance criteria:**
-- [x] `prompts/daily-routine.md` に、目的・入力・手順・出力形式・制約が明記されている
-- [x] キーワード拡張（声優名・制作会社・コラボ相手・シリーズ名等）のロジックが具体例つきで
-      記述されている
-- [x] 既存の `events` テーブルと照合し、同一イベントを再度書き込まない重複除去ロジックがある
-      （`lib/ingest.ts`、テスト済み）
-- [x] dry-runモード（DB書き込みをスキップしてログのみ出力）がある
+- [ ] `web/lib/gemini.ts` に、キーワードを受け取りVertex AIへリクエストして
+      候補イベント配列（`CandidateEvent[]`、`lib/ingest.ts`の型と一致）を返す関数がある
+- [ ] プロンプト（Gemini向け）に、キーワード拡張の観点（声優名・制作会社・コラボ相手等）と
+      「日付のあるイベント情報」の定義が具体例つきで含まれている
+- [ ] Google検索グラウンディングと構造化出力（JSON）を同一リクエストで使用する
+- [ ] 認証情報（GCPサービスアカウントキー）はVercelの環境変数として保持し、
+      リポジトリにコミットしない
 
 **Verification:**
-- [x] `npx vitest run` で `ingestEvents` の重複除去・バリデーション・dry-runをテスト済み（6件）
-- [x] 実際のSupabaseに対し、curlで認証チェック→dry-run→書き込み→重複skipの一連の流れを確認
-      （テストデータは確認後に削除済み）
-- [ ] RemoteTriggerでの実ルーチン実行による確認は **Task 6で実施**
+- [ ] モックを使ったユニットテストで、レスポンス解析・エラーハンドリングを確認
+- [ ] 実際のGCPプロジェクトに対し、1キーワードで呼び出し、妥当な候補が返ることを確認
+      （ユーザーのGCPサービスアカウントキー設定待ち）
 
-**Dependencies:** Task 1, Task 2, Task 4（テスト用キーワードの登録に使うため）
+**Dependencies:** Task 1, Task 2
 
 **Files likely touched:**
-- `prompts/daily-routine.md`
-- `web/lib/ingest.ts`, `web/lib/ingest.test.ts`, `web/app/api/ingest/route.ts`（追加スコープ）
+- `web/lib/gemini.ts`, `web/lib/gemini.test.ts`（新規）
+- `web/app/api/cron/collect/route.ts`（新規、Vercel Cronから起動）
+- `web/vercel.json`（新規、cron設定）
+- `prompts/daily-routine.md`, `scripts/run-daily-routine.sh`（削除）
 
 **Estimated scope:** M
 
 ---
 
-## Task 6: 収集ルーチンを定期実行に登録する — **ローカル実行方式に変更・動作確認済み**
+## Task 6: Vercel Cronへの登録
 
-**Description:** Task 5のプロンプトを使い、毎日07:00（JST）に実行されるルーチンを登録する。
-
-→ 当初の `RemoteTrigger`（クラウドエージェント）はegress制限で動作しないと判明したため
-（[secrets-handling.md](../docs/research/secrets-handling.md)参照）、**ユーザーの指示により
-ローカル実行に変更**。`RemoteTrigger`のルーチンは無効化した。
-
-新方式: `scripts/run-daily-routine.sh` が `web/.env.local` の秘密情報を環境変数として渡し、
-ローカルの `claude -p` で `prompts/daily-routine.md` を実行する。スケジューリングは
-macOS launchd（毎日07:00 JST）を使う想定だが、**常駐設定（launchd登録）はユーザーの
-明示的な許可を得てから行う**（未実施）。
+**Description:** Task 5のロジックを、Vercelの `vercel.json` の `crons` 設定で
+毎日07:00 JST（`0 22 * * *`、UTC）に自動実行されるようにする。
 
 **Acceptance criteria:**
-- [x] スクリプト手動実行で、キーワード0件時に正しく早期終了する（確認済み）
-- [x] スクリプト手動実行で、キーワードありの場合に収集→dry-run→実書き込みが
-      正しく行われる（「呪術廻戦」でテストし、8件収集・書き込み後に削除して確認済み）
-- [ ] launchdへの常駐登録（毎日07:00 JST自動実行）— **ユーザーの許可待ち**
+- [ ] `vercel.json` に cron設定があり、`/api/cron/collect` を毎日07:00 JSTに叩く
+- [ ] cronエンドポイントは `CRON_SECRET` 等でVercel Cron以外からの呼び出しを拒否する
+- [ ] 本番環境で手動トリガー（またはVercelダッシュボードからの実行）により正常終了する
 
 **Verification:**
-- [x] `DRY_RUN=true` で実行し、`wouldInsert` に妥当な候補が返ることを確認
-- [x] `DRY_RUN=false` で実行し、実際にSupabaseへ書き込まれることを確認
-- [ ] launchd経由の自動実行が実際に07:00 JSTに起動することの確認（登録後に実施）
+- [ ] 本番URLの `/api/cron/collect` に正しい認証で叩き、Supabaseにイベントが反映されることを確認
+- [ ] 認証なし/不正な認証では401になることを確認
 
 **Dependencies:** Task 5
 
 **Files likely touched:**
-- `scripts/run-daily-routine.sh`（新規）
-- `prompts/daily-routine.md`（環境変数参照方式に書き換え）
-- launchd plist（登録時に作成）
+- `web/vercel.json`
+- `web/app/api/cron/collect/route.ts`
 
 **Estimated scope:** S
 

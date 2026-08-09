@@ -28,15 +28,21 @@
    **Web画面から行う**。LINEチャット経由の登録は不要と確定した
 2. 通知チャネルは LINE Messaging API（Push Message）。日本での普及率とマルチユーザー
    拡張時の相性を理由に確定済み
-3. 収集・キーワード拡張・優先度判断は Anthropic の**スケジュール済みクラウドエージェントルーチン**
-   （`RemoteTrigger`／毎日cron実行）が担う。ただしWeb画面・LINE通知の配信は
-   **常時稼働のWebサーバー**が別途必要（2026-08-07 変更、下記「アーキテクチャ変更」参照）
+3. ~~収集はAnthropicクラウドエージェントルーチン~~ **2度の方針転換を経て確定（2026-08-08）**:
+   収集（キーワード拡張・Web検索・構造化抽出）は **Vercel Cron + GCP Vertex AI
+   （Gemini + Google検索グラウンディング）への単発API呼び出し**で行う。
+   経緯: ①クラウドエージェントルーチン(RemoteTrigger)はegress制限で実行環境からVercelへ
+   到達できず不可 → ②ローカル実行(`claude -p`+launchd)は動いたがMacのスリープ中は
+   動作しないため不採用 → ③自律エージェントをやめ、Vercelの通常のサーバーレス関数から
+   単発のAI API呼び出しを行う方式に確定。詳細は
+   [secrets-handling.md](../research/secrets-handling.md) 参照
 4. 状態永続化は **Supabase（Postgres）** を使用する（2026-08-07 決定。
    当初のGitコミット方式から変更）
-5. API利用料（X公式API、生成AI利用分）は許容する方針が確定済み
-   （[event-collector.md](../intent/event-collector.md) Constraint参照）
+5. API利用料は許容する方針が確定済み（[event-collector.md](../intent/event-collector.md)
+   Constraint参照）。ただしVertex AI採用によりコストは大幅に下がる見込み
+   （月5,000回まで無料のGoogle検索グラウンディング＋少量のトークン課金で月5ドル未満試算）
 
-→ 誤りがあれば訂正してください。特に1点目（登録方法）は妥協した点なので要確認。
+→ 誤りがあれば訂正してください。
 
 ## Objective
 
@@ -54,16 +60,18 @@
 
 | 要素 | 選択 | 理由 |
 |---|---|---|
-| 収集バッチ | Anthropicクラウドエージェントルーチン（claude-sonnet-5、cron） | Web検索・キーワード拡張・優先度判断をAI自身に一任できる |
+| 収集トリガー | **Vercel Cron**（`vercel.json`、毎日07:00 JST） | 常時稼働のVercel上で完結し、Macのスリープ等に依存しない |
+| 収集ロジック | **GCP Vertex AI（Gemini + Google検索グラウンディング）への単発API呼び出し** | キーワード拡張・Web検索・構造化抽出を1回の呼び出しで実施。自律エージェント（Bash等のツール使用）ではないため、実行環境のegress制限や秘密情報埋め込み問題を回避できる |
 | Webサーバー | **Next.js on Vercel**（Hobbyプラン） | 全件閲覧画面 + LINE Push送信の起点。個人・非商用利用ならHobbyプランが無期限無料 |
-| データベース | **Supabase（Postgres）**（Freeプラン） | 500MB無料枠。**APIキー付きHTTPで直接書き込めるREST APIが自動生成**されるため、
-収集ルーチン→DBの書き込み経路の悩みが解消する。無料プロジェクトは1週間操作がないと一時停止するが、
-毎日の収集書き込みがあるため実質問題にならない見込み |
+| データベース | **Supabase（Postgres）**（Freeプラン） | 500MB無料枠。**APIキー付きHTTPで直接書き込めるREST APIが自動生成**される。
+無料プロジェクトは1週間操作がないと一時停止するが、毎日の収集書き込みがあるため実質問題にならない見込み |
 | 通知 | LINE Messaging API（Push Message、Webサーバー経由） | 個人利用として無料枠内、将来の複数ユーザー対応とも相性が良い。通知にはWeb画面へのリンクを含める |
-| データ取得 | X API（公式・従量課金）、Instagram Graph API（公式）、
-YouTube Data API v3（公式・無料枠）、Web検索（ルーチン内蔵） | [feasibility調査](../research/data-source-feasibility.md)に基づく |
+| データ取得 | Vertex AI経由のGoogle検索グラウンディング（Web・関連語探索）、
+YouTube Data API v3（公式・無料枠）。X・Instagramは未着手 | [feasibility調査](../research/data-source-feasibility.md)に基づく |
 
-**明示的に採用しないもの:** 独自スクレイパー、非公式APIラッパー、ネイティブアプリ
+**明示的に採用しないもの:** 独自スクレイパー、非公式APIラッパー、ネイティブアプリ、
+**自律型AIエージェント実行**（クラウド・ローカルとも実行環境上の制約により不採用。
+2026-08-08、詳細は[secrets-handling.md](../research/secrets-handling.md)）
 
 ## Commands
 
