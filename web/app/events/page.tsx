@@ -1,31 +1,12 @@
 import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { filterUpcoming, groupEventsByKeyword, listEvents, type Event } from "@/lib/events";
+import { filterUpcoming, groupEventsByKeyword, listEvents } from "@/lib/events";
+import { categoryColorClass } from "@/lib/colors";
+import { Badge } from "@/components/Badge";
+import { EmptyState } from "@/components/EmptyState";
+import { EventRow } from "@/components/EventRow";
 
 export const dynamic = "force-dynamic";
-
-const CONFIDENCE_LABEL: Record<string, string> = {
-  confirmed: "確実",
-  exploratory: "探索",
-};
-
-function occurrenceSummary(event: Event): string | null {
-  const occurrences = event.occurrences ?? [];
-
-  if (occurrences.length === 0) {
-    return event.event_date ?? null;
-  }
-
-  if (occurrences.length === 1) {
-    const only = occurrences[0];
-    return [only.label, only.event_date].filter(Boolean).join(" ");
-  }
-
-  return `${occurrences.length}会場・地域（${occurrences
-    .map((o) => o.label)
-    .slice(0, 3)
-    .join(" / ")}${occurrences.length > 3 ? " ほか" : ""}）`;
-}
 
 export default async function EventsPage({
   searchParams,
@@ -43,39 +24,71 @@ export default async function EventsPage({
   const hiddenCount = allEvents.length - events.length;
 
   return (
-    <main>
-      <h1>収集したイベント一覧</h1>
+    <main className="flex flex-col gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">
+          収集したイベント一覧
+        </h1>
+        <div className="flex gap-2 text-sm">
+          <Link
+            href="/events"
+            className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+              !showAll
+                ? "bg-brand-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            開催予定のみ
+          </Link>
+          <Link
+            href="/events?all=1"
+            className={`rounded-md px-3 py-1.5 font-medium transition-colors ${
+              showAll
+                ? "bg-brand-600 text-white"
+                : "bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700"
+            }`}
+          >
+            すべて表示
+          </Link>
+        </div>
+      </div>
+
       {!showAll && hiddenCount > 0 && (
-        <p>
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           終了したイベント{hiddenCount}件を非表示にしています。
-          <Link href="/events?all=1">すべて表示</Link>
         </p>
       )}
-      {showAll && (
-        <p>
-          <Link href="/events">開催予定のみ表示に戻す</Link>
-        </p>
+
+      {groups.length === 0 ? (
+        <EmptyState
+          title="まだイベントがありません"
+          description="キーワードを登録すると、毎朝自動で収集が始まります。"
+          action={
+            <Link
+              href="/keywords"
+              className="text-sm font-medium text-brand-600 hover:underline dark:text-brand-500"
+            >
+              キーワードを登録する →
+            </Link>
+          }
+        />
+      ) : (
+        groups.map((group) => (
+          <section key={group.keyword} className="flex flex-col gap-3">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-slate-900 dark:text-slate-100">
+              <Badge className={categoryColorClass(group.keyword)}>{group.keyword}</Badge>
+              <span className="text-sm font-normal text-slate-500 dark:text-slate-400">
+                {group.events.length}件
+              </span>
+            </h2>
+            <ul className="flex flex-col gap-2">
+              {group.events.map((event) => (
+                <EventRow key={event.id} event={event} today={today} />
+              ))}
+            </ul>
+          </section>
+        ))
       )}
-      {groups.length === 0 && <p>まだイベントがありません。</p>}
-      {groups.map((group) => (
-        <section key={group.keyword}>
-          <h2>
-            {group.keyword}（{group.events.length}件）
-          </h2>
-          <ul>
-            {group.events.map((event) => {
-              const summary = occurrenceSummary(event);
-              return (
-                <li key={event.id}>
-                  <span>[{CONFIDENCE_LABEL[event.confidence] ?? event.confidence}]</span>{" "}
-                  <Link href={`/events/${event.id}`}>{event.title}</Link>
-                  {summary && <span> — {summary}</span>}
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      ))}
     </main>
   );
 }
