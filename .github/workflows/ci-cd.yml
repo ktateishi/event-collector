@@ -23,9 +23,31 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  changes:
+    runs-on: ubuntu-latest
+    if: github.event_name != 'workflow_dispatch'
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'web/**'
+
   deploy:
-    needs: test
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [test, changes]
+    # changesジョブはworkflow_dispatch時にskipされるため、needsの自動判定に任せず
+    # always()で明示的に実行し、条件を自前で判定する
+    # （手動実行(workflow_dispatch)はweb/配下の差分がなくても常にデプロイを許可する）
+    if: >
+      always() &&
+      needs.test.result == 'success' &&
+      github.ref == 'refs/heads/main' &&
+      github.event_name != 'pull_request' &&
+      (github.event_name == 'workflow_dispatch' || needs.changes.outputs.web == 'true')
     runs-on: ubuntu-latest
     defaults:
       run:
