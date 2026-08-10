@@ -15,8 +15,25 @@ export type Event = {
   registration_opens_at?: string;
   deadline_at?: string;
   occurrences?: Occurrence[];
+  /** LINE Flex Messageカルーセルのカード分類（固定値、Gemini抽出時に判定） */
+  category?: EventCategory;
+  /** カード表示用の1行要約（Gemini抽出時に生成） */
+  summary?: string;
+  /** 収集済みページのog:imageから抽出した実画像（あれば最優先で使う） */
+  image_url?: string;
   created_at: string;
 };
+
+export const EVENT_CATEGORIES = [
+  "movie",
+  "exhibition",
+  "game",
+  "concert",
+  "collab",
+  "other",
+] as const;
+
+export type EventCategory = (typeof EVENT_CATEGORIES)[number];
 
 export const UNCATEGORIZED_LABEL = "未分類";
 

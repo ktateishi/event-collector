@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from "vitest";
-import { fetchPageText, htmlToText, resolveGroundingUrl } from "./fetch-page";
+import { extractOgImage, fetchPageText, htmlToText, resolveGroundingUrl } from "./fetch-page";
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -54,6 +54,40 @@ describe("resolveGroundingUrl", () => {
   });
 });
 
+describe("extractOgImage", () => {
+  it("extracts an absolute og:image URL", () => {
+    const html = `<html><head><meta property="og:image" content="https://example.com/a.jpg" /></head></html>`;
+
+    expect(extractOgImage(html, "https://example.com/news/1")).toBe("https://example.com/a.jpg");
+  });
+
+  it("works regardless of attribute order", () => {
+    const html = `<meta content="https://example.com/b.jpg" property="og:image">`;
+
+    expect(extractOgImage(html, "https://example.com/news/1")).toBe("https://example.com/b.jpg");
+  });
+
+  it("resolves a relative og:image URL against the page URL", () => {
+    const html = `<meta property="og:image" content="/images/c.jpg">`;
+
+    expect(extractOgImage(html, "https://example.com/news/1")).toBe(
+      "https://example.com/images/c.jpg"
+    );
+  });
+
+  it("falls back to twitter:image when og:image is absent", () => {
+    const html = `<meta name="twitter:image" content="https://example.com/d.jpg">`;
+
+    expect(extractOgImage(html, "https://example.com/news/1")).toBe("https://example.com/d.jpg");
+  });
+
+  it("returns undefined when neither tag is present", () => {
+    const html = `<meta property="og:title" content="タイトル">`;
+
+    expect(extractOgImage(html, "https://example.com/news/1")).toBeUndefined();
+  });
+});
+
 describe("fetchPageText", () => {
   it("returns the final URL and extracted text on success", async () => {
     const fetchMock = vi.fn().mockResolvedValue({
@@ -69,10 +103,28 @@ describe("fetchPageText", () => {
     expect(result).toEqual({
       url: "https://real.example.com/news/1",
       text: "イベントは2026年9月15日開催",
+      imageUrl: undefined,
     });
 
     const [, init] = fetchMock.mock.calls[0];
     expect(init.headers["User-Agent"]).toContain("Mozilla");
+  });
+
+  it("includes the og:image URL found in the fetched page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 200,
+        url: "https://real.example.com/news/1",
+        text: async () =>
+          `<html><head><meta property="og:image" content="https://real.example.com/thumb.jpg"></head><body><p>本文</p></body></html>`,
+      })
+    );
+
+    const result = await fetchPageText("https://real.example.com/news/1");
+
+    expect(result?.imageUrl).toBe("https://real.example.com/thumb.jpg");
   });
 
   it("returns null when the page responds with an error status", async () => {

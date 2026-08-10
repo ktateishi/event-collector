@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { earliestDate, isAlreadyOver, mergeOccurrences, type Occurrence } from "./occurrences";
 import { normalizeTitle } from "./normalize-title";
+import { EVENT_CATEGORIES, type EventCategory } from "./events";
 
 export type CandidateEvent = {
   title: string;
@@ -16,6 +17,12 @@ export type CandidateEvent = {
   deadline_at?: string;
   /** 同一イベントの複数会場・複数地域（Task 18） */
   occurrences?: Occurrence[];
+  /** LINE Flex Messageカルーセルのカード分類（固定値、Gemini抽出時に判定） */
+  category?: EventCategory;
+  /** カード表示用の1行要約（Gemini抽出時に生成） */
+  summary?: string;
+  /** 収集済みページのog:imageから抽出した実画像（あれば最優先で使う） */
+  image_url?: string;
 };
 
 export type IngestResult = {
@@ -33,6 +40,9 @@ type ExistingEvent = {
   id: string;
   title: string;
   occurrences?: Occurrence[];
+  category?: EventCategory;
+  summary?: string;
+  image_url?: string;
 };
 
 const VALID_MATCHED_VIA = new Set(["direct", "expanded"]);
@@ -70,7 +80,7 @@ export async function ingestEvents(
 
   const { data: existingRows, error } = await client
     .from("events")
-    .select("id, title, occurrences");
+    .select("id, title, occurrences, category, summary, image_url");
 
   if (error) {
     throw new Error(error.message);
@@ -110,7 +120,17 @@ export async function ingestEvents(
       const merged = mergeOccurrences(existingOccurrences, incomingOccurrences);
       const addedCount = merged.length - existingOccurrences.length;
 
-      if (addedCount === 0) {
+      // category/summary/image_urlは既存イベントに欠けていれば埋める
+      // （本機能追加前に収集済みのイベントへの後埋め、occurrencesと同じ「既存優先」方針）
+      const nextCategory = existing.category ?? candidate.category;
+      const nextSummary = existing.summary ?? candidate.summary;
+      const nextImageUrl = existing.image_url ?? candidate.image_url;
+      const backfilled =
+        nextCategory !== existing.category ||
+        nextSummary !== existing.summary ||
+        nextImageUrl !== existing.image_url;
+
+      if (addedCount === 0 && !backfilled) {
         result.skipped.push({ candidate, reason: "duplicate" });
         continue;
       }
@@ -122,7 +142,13 @@ export async function ingestEvents(
 
       const { error: updateError } = await client
         .from("events")
-        .update({ occurrences: merged, event_date: earliestDate(merged) ?? candidate.event_date })
+        .update({
+          occurrences: merged,
+          event_date: earliestDate(merged) ?? candidate.event_date,
+          category: nextCategory,
+          summary: nextSummary,
+          image_url: nextImageUrl,
+        })
         .eq("id", existing.id);
 
       if (updateError) {
@@ -131,6 +157,9 @@ export async function ingestEvents(
       }
 
       existing.occurrences = merged;
+      existing.category = nextCategory;
+      existing.summary = nextSummary;
+      existing.image_url = nextImageUrl;
       result.merged.push({ title: candidate.title, addedOccurrences: addedCount });
       continue;
     }

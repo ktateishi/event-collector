@@ -15,6 +15,12 @@ const EVENT_RESPONSE_SCHEMA = {
           url: { type: "string" },
           matched_via: { type: "string", enum: ["direct", "expanded"] },
           matched_term: { type: "string" },
+          // LINE Flex Messageカードの背景画像フォールバック・要約表示に使う（ユーザー要望）
+          category: {
+            type: "string",
+            enum: ["movie", "exhibition", "game", "concert", "collab", "other"],
+          },
+          summary: { type: "string" },
           // URLは文字列としてモデルに書かせない（推測・混同による404/誤リンクの原因になるため）。
           // 代わりにpage_id（渡したページの番号）を返させ、呼び出し側で実URLに解決する
           page_id: { type: "integer" },
@@ -55,7 +61,7 @@ const EVENT_RESPONSE_SCHEMA = {
 export async function extractEventsFromPages(
   env: GeminiEnv,
   keyword: string,
-  pages: { url: string; text: string }[]
+  pages: { url: string; text: string; imageUrl?: string }[]
 ): Promise<CandidateEvent[]> {
   if (pages.length === 0) {
     return [];

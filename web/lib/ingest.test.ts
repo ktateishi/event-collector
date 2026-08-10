@@ -6,6 +6,9 @@ type ExistingRow = {
   id: string;
   title: string;
   occurrences?: { label: string; event_date?: string; url?: string }[];
+  category?: string;
+  summary?: string;
+  image_url?: string;
 };
 
 function fakeClient(existingRows: ExistingRow[]) {
@@ -100,6 +103,61 @@ describe("ingestEvents", () => {
 
     expect(updateCalls).toHaveLength(0);
     expect(result.skipped[0].reason).toBe("duplicate");
+  });
+
+  it("backfills category/summary/image_url on an existing event that lacks them, even with no new occurrences", async () => {
+    const { client, updateCalls } = fakeClient([
+      {
+        id: "existing-id",
+        title: "鬼滅の刃 ライブイベント",
+        occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
+      },
+    ]);
+
+    const withMetadata: CandidateEvent = {
+      ...validCandidate,
+      category: "concert",
+      summary: "大盛況のライブイベント",
+      image_url: "https://kimetsu.com/og.jpg",
+    };
+
+    const result = await ingestEvents(client, [withMetadata], { dryRun: false });
+
+    expect(result.merged).toHaveLength(1);
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].payload.category).toBe("concert");
+    expect(updateCalls[0].payload.summary).toBe("大盛況のライブイベント");
+    expect(updateCalls[0].payload.image_url).toBe("https://kimetsu.com/og.jpg");
+  });
+
+  it("does not overwrite an existing category/summary/image_url with new candidate values", async () => {
+    const { client, updateCalls } = fakeClient([
+      {
+        id: "existing-id",
+        title: "鬼滅の刃 ライブイベント",
+        occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
+        category: "movie",
+        summary: "既存の要約",
+        image_url: "https://kimetsu.com/existing.jpg",
+      },
+    ]);
+
+    const withNewVenueAndMetadata: CandidateEvent = {
+      ...validCandidate,
+      occurrences: [
+        { label: "東京会場", event_date: "2026-09-15" },
+        { label: "大阪会場", event_date: "2026-10-01" },
+      ],
+      category: "concert",
+      summary: "新しい要約",
+      image_url: "https://kimetsu.com/new.jpg",
+    };
+
+    await ingestEvents(client, [withNewVenueAndMetadata], { dryRun: false });
+
+    expect(updateCalls[0].payload.category).toBe("movie");
+    expect(updateCalls[0].payload.summary).toBe("既存の要約");
+    expect(updateCalls[0].payload.image_url).toBe("https://kimetsu.com/existing.jpg");
   });
 
   it("skips duplicates within the same batch too", async () => {

@@ -50,10 +50,28 @@ describe("buildExtractionPrompt", () => {
     expect(prompt).toContain("occurrences");
     expect(prompt).toContain("1件");
   });
+
+  it("asks for a fixed-set category and a one-line summary (LINE Flex Message用)", () => {
+    const prompt = buildExtractionPrompt("エヴァンゲリオン", [
+      { url: "https://a.example/1", text: "本文A" },
+    ]);
+
+    expect(prompt).toContain("category");
+    expect(prompt).toContain("movie");
+    expect(prompt).toContain("exhibition");
+    expect(prompt).toContain("game");
+    expect(prompt).toContain("concert");
+    expect(prompt).toContain("collab");
+    expect(prompt).toContain("other");
+    expect(prompt).toContain("summary");
+  });
 });
 
 describe("parseGeminiCandidates", () => {
-  const pages = [{ url: "https://a.example/1" }, { url: "https://b.example/2" }];
+  const pages = [
+    { url: "https://a.example/1", imageUrl: "https://a.example/og.jpg" },
+    { url: "https://b.example/2" },
+  ];
 
   const validJson = JSON.stringify({
     events: [
@@ -63,6 +81,8 @@ describe("parseGeminiCandidates", () => {
         page_id: 1,
         matched_via: "direct",
         matched_term: "鬼滅の刃",
+        category: "concert",
+        summary: "鬼滅の刃の大規模ライブイベント",
         occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
       },
       {
@@ -71,6 +91,8 @@ describe("parseGeminiCandidates", () => {
         page_id: 2,
         matched_via: "expanded",
         matched_term: "MAPPA",
+        category: "collab",
+        summary: "MAPPA作品のコラボカフェ",
         occurrences: [
           { label: "大阪会場", event_date: "2026-10-01" },
           { label: "東京会場", event_date: "2026-09-16", deadline_at: "2026-12-07T14:59:59+09:00" },
@@ -97,6 +119,39 @@ describe("parseGeminiCandidates", () => {
       matched_via: "expanded",
       confidence: "exploratory",
     });
+  });
+
+  it("carries category, summary, and the source page's image URL", () => {
+    const result = parseGeminiCandidates(validJson, pages);
+
+    expect(result[0]).toMatchObject({
+      category: "concert",
+      summary: "鬼滅の刃の大規模ライブイベント",
+      image_url: "https://a.example/og.jpg",
+    });
+    // page 2にはimageUrlがない
+    expect(result[1].image_url).toBeUndefined();
+  });
+
+  it("drops an unrecognized category value instead of failing the whole event", () => {
+    const json = JSON.stringify({
+      events: [
+        {
+          title: "鬼滅の刃 ライブイベント",
+          source: "kimetsu.com",
+          page_id: 1,
+          matched_via: "direct",
+          matched_term: "鬼滅の刃",
+          category: "not-a-real-category",
+          occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
+        },
+      ],
+    });
+
+    const result = parseGeminiCandidates(json, pages);
+
+    expect(result).toHaveLength(1);
+    expect(result[0].category).toBeUndefined();
   });
 
   it("keeps all occurrences and uses the earliest date as the event's representative date", () => {

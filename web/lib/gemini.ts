@@ -27,7 +27,8 @@ export async function collectEventsForKeyword(
 
   const fetched = await Promise.all(urls.map((url) => fetchPageText(url)));
   const pages = fetched.filter(
-    (page): page is { url: string; text: string } => page !== null && page.text.length > 0
+    (page): page is { url: string; text: string; imageUrl?: string } =>
+      page !== null && page.text.length > 0
   );
 
   return extractEventsFromPages(env, keyword, pages);

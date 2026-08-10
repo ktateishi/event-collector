@@ -1,5 +1,6 @@
 import type { CandidateEvent } from "./ingest";
 import { earliestDate, type Occurrence } from "./occurrences";
+import { EVENT_CATEGORIES, type EventCategory } from "./events";
 
 /**
  * 「確実に検索すべき」定番クエリのテンプレート。モデルの自由な判断だけに任せると、
@@ -92,6 +93,15 @@ title には会場名・地域名を含めない共通の名称を入れてく�
 （「ALL OF EVANGELION 名古屋会場」ではなく「30周年記念展 ALL OF EVANGELION」）。
 会場が1つだけの場合も、occurrences には必ず1件入れてください。
 
+## category / summary（LINE通知のカード表示用）
+
+- category: そのイベントの種類を、次の固定値のうち最も当てはまるもの1つで分類してください。
+  movie（映画・上映）, exhibition（展覧会・展示・装飾）, game（ゲーム・謎解き等）,
+  concert（音楽・ライブ・番組放送）, collab（コラボ商品・グッズ・カフェ等）,
+  other（上記のいずれにも当てはまらない場合）
+- summary: そのイベントの内容を日本語1文（40字程度まで）で簡潔に要約してください
+  （見出しではなく、何のイベントかが一目で分かる説明文）
+
 ## 終了日について（重要）
 
 **event_date は開催の開始日です。終了日ではありません。** 展覧会・キャンペーン等、
@@ -124,6 +134,8 @@ ${pagesBlock}
       "page_id": 1,
       "matched_via": "direct または expanded",
       "matched_term": "string",
+      "category": "movie/exhibition/game/concert/collab/otherのいずれか",
+      "summary": "string（1文の要約）",
       "occurrences": [
         {
           "label": "string（会場名・地域名。単一開催なら「開催」等でよい）",
@@ -154,8 +166,19 @@ type RawGeminiEvent = {
   page_id?: unknown;
   matched_via?: unknown;
   matched_term?: unknown;
+  category?: unknown;
+  summary?: unknown;
   occurrences?: unknown;
 };
+
+const VALID_CATEGORIES = new Set<string>(EVENT_CATEGORIES);
+
+/** 不明なカテゴリ値は破棄する（イベント全体は失敗させず、カード画像がアイコンにフォールバックするだけ） */
+function asOptionalCategory(value: unknown): EventCategory | undefined {
+  return typeof value === "string" && VALID_CATEGORIES.has(value)
+    ? (value as EventCategory)
+    : undefined;
+}
 
 function stripCodeFence(text: string): string {
   const trimmed = text.trim();
@@ -211,7 +234,7 @@ function toOccurrences(raw: unknown): Occurrence[] {
  */
 export function parseGeminiCandidates(
   rawText: string,
-  pages: { url: string }[]
+  pages: { url: string; imageUrl?: string }[]
 ): CandidateEvent[] {
   let parsed: unknown;
 
@@ -253,6 +276,9 @@ export function parseGeminiCandidates(
       matched_keyword: raw.matched_term,
       matched_via: raw.matched_via,
       confidence: raw.matched_via === "direct" ? "confirmed" : "exploratory",
+      category: asOptionalCategory(raw.category),
+      summary: asOptionalString(raw.summary),
+      image_url: page.imageUrl,
       occurrences,
       // トップレベルの日付は代表値（最も早い開催日）。ingestEvents側で
       // earliestDate()により再計算されるが、単一occurrenceの場合の素直な値として入れておく
