@@ -606,3 +606,65 @@ occurrences jsonb  -- 例:
 **Dependencies:** Task 17, Task 18（情報構造が固まってから着手する）
 
 **Estimated scope:** M
+
+---
+
+### Task 20: 長期運用に向けたデータ衛生（タイトル表記ゆれ・過去イベントの整理）— **完了（2026-08-10）**
+
+**Description:** 数ヶ月運用した際に想定される2つの劣化を防ぐ。
+(1) 収集元サイトによるタイトルの表記ゆれで同一イベントが重複登録される、
+(2) 過去に終了したイベントが一覧に積み上がり続ける。ユーザーからの提起。
+
+**事前検証**: Supabaseの容量は問題にならないことを実測済み
+（1件653バイト、新規20件/日でも年間約14MB＝無料枠500MBの3%）。
+それでも「終了済みイベントは削除したい」という要望のため、以下を実装した。
+
+**方針**:
+1. **タイトル正規化**: 括弧記号（「」『』()（）等）・区切り記号（・）・
+   全角/半角スペースの差異を吸収してから重複判定する（`normalizeTitle`）
+2. **収集時点で終了済みイベントを弾く**: `isAlreadyOver` で判定し、
+   そもそもDBに入れない（削除済みイベントが翌日また「新規」として
+   再収集され、LINE通知で終了済みイベントが新着として届く事故を防ぐ）
+3. **一覧のデフォルト表示から終了済みを除外**: `filterUpcoming`。
+   `/events?all=1` で全件表示に切り替え可能
+4. **猶予期間30日を置いて物理削除**: `isSafelyDeletable` + 新規Cronエンドポイント
+   `/api/cron/cleanup`（毎日08:00 JST）
+
+**設計上の要注意点（実装前に発見）**:
+- `event_date`は開始日であり終了日ではない。単純に「開始日が過ぎたら終了」と
+  判定すると、まだ開催中の展覧会を誤って隠す/削除するリスクがある
+  （最優先課題である「見逃し」に直結する）
+- そのため `Occurrence` に **`event_end_date`**（終了日、Geminiが本文に
+  明記されている場合のみ入れる。推測禁止）を追加した
+- 削除（`isSafelyDeletable`）は表示フィルタ（`isEnded`）よりさらに厳格にした。
+  **終了日が明示されていない occurrence が1件でもあれば削除しない**
+  （開始日だけの情報から「もう終わっただろう」と推測して消すことはしない）
+- 収集時点の足切り（`isAlreadyOver`）だけは例外的に、終了日がなく開始日のみの
+  場合でも「180日以上前」なら明らかに古いと判断して弾く
+  （新規収集の候補にまで温情をかけると際限なく古い情報を拾ってしまうため。
+  既存データの削除とは別の閾値でよいと判断した）
+
+**Acceptance criteria:**
+- [x] タイトルの括弧・空白等の表記ゆれを正規化してから重複判定する
+- [x] 収集時点で明らかに終了済みのイベントを取り込まない
+- [x] `/events` はデフォルトで終了済みイベントを除外して表示する
+      （巡回展は1会場でも残っていれば表示し続ける）
+- [x] 全occurrenceの終了から30日後に物理削除する日次Cronがある
+- [x] 終了日が不明なイベントは絶対に削除しない
+
+**Verification:**
+- [x] ユニットテスト38件追加（`occurrences.test.ts`22件、`normalize-title.test.ts`5件、
+      `ingest.test.ts`/`events.test.ts`の追加分）、全体で91件パス
+- [x] 本番の`/api/cron/cleanup`を実行し、実データ31件中1件のみが削除されることを確認。
+      削除されたのは受注締切（`deadline_at`）が11ヶ月前に過ぎた受注生産商品で、
+      開催予定日が不明な他の30件は正しく保持された
+
+**Dependencies:** Task 17, Task 18
+
+**Files likely touched:**
+- `web/lib/occurrences.ts`（`isEnded`/`isAlreadyOver`/`isSafelyDeletable`追加）,
+  `web/lib/normalize-title.ts`（新規）, `web/lib/ingest.ts`, `web/lib/events.ts`,
+  `web/lib/gemini-prompt.ts`, `web/lib/gemini-extract.ts`,
+  `web/app/api/cron/cleanup/route.ts`（新規）, `web/app/events/page.tsx`, `web/vercel.json`
+
+**Estimated scope:** M

@@ -1,5 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Occurrence } from "./occurrences";
+import { isEnded, isSafelyDeletable, type Occurrence } from "./occurrences";
 
 export type Event = {
   id: string;
@@ -46,6 +46,15 @@ export function groupEventsByKeyword(events: Event[]): { keyword: string; events
     });
 }
 
+/**
+ * 全occurrenceが終了しているイベントを一覧から除く（Task 20）。
+ * 巡回展のように1会場でも残っていれば表示し続ける（isEnded参照）。
+ * 日付情報がなく判定できないイベントは安全側に倒して表示に残す。
+ */
+export function filterUpcoming(events: Event[], today: string): Event[] {
+  return events.filter((event) => !isEnded(event.occurrences ?? [], today));
+}
+
 export async function getEventCount(client: SupabaseClient): Promise<number> {
   const { count, error } = await client
     .from("events")
@@ -79,4 +88,18 @@ export async function getEventById(client: SupabaseClient, id: string): Promise<
   }
 
   return (data ?? null) as Event | null;
+}
+
+/**
+ * 猶予期間を過ぎて安全に削除してよいイベントのIDを選ぶ（Task 20）。
+ * 終了日が明示されていないイベントは対象にしない（isSafelyDeletable参照）。
+ */
+export function selectDeletableEventIds(
+  events: Event[],
+  today: string,
+  gracePeriodDays: number
+): string[] {
+  return events
+    .filter((event) => isSafelyDeletable(event.occurrences ?? [], today, gracePeriodDays))
+    .map((event) => event.id);
 }

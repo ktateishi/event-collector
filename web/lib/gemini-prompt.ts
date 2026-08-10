@@ -92,6 +92,16 @@ title には会場名・地域名を含めない共通の名称を入れてく�
 （「ALL OF EVANGELION 名古屋会場」ではなく「30周年記念展 ALL OF EVANGELION」）。
 会場が1つだけの場合も、occurrences には必ず1件入れてください。
 
+## 終了日について（重要）
+
+**event_date は開催の開始日です。終了日ではありません。** 展覧会・キャンペーン等、
+本文に終了日・会期末日が明記されている場合は、必ず event_end_date に入れてください
+（このツールは終了したイベントを自動的に片付けるために終了日を使うため、
+分かるのに省略すると「まだ開催中なのに終了扱いされる」事故につながります）。
+終了日が本文に見当たらない場合は event_end_date を null にしてください
+（推測で埋めないこと）。単発の1日だけのイベントは event_end_date を
+event_date と同じ日にしてください。
+
 ## 制約（重要）
 
 - **URLを自分で書かないこと。** 代わりに、そのイベントが書かれていた
@@ -117,7 +127,8 @@ ${pagesBlock}
       "occurrences": [
         {
           "label": "string（会場名・地域名。単一開催なら「開催」等でよい）",
-          "event_date": "YYYY-MM-DD または null",
+          "event_date": "YYYY-MM-DD または null（開始日）",
+          "event_end_date": "YYYY-MM-DD または null（終了日、本文に明記されている場合のみ）",
           "registration_opens_at": "ISO8601日時 または null",
           "deadline_at": "ISO8601日時 または null"
         }
@@ -132,6 +143,7 @@ ${pagesBlock}
 type RawOccurrence = {
   label?: unknown;
   event_date?: unknown;
+  event_end_date?: unknown;
   registration_opens_at?: unknown;
   deadline_at?: unknown;
 };
@@ -169,6 +181,7 @@ function toOccurrences(raw: unknown): Occurrence[] {
 
   for (const item of raw as RawOccurrence[]) {
     const event_date = asOptionalString(item?.event_date);
+    const event_end_date = asOptionalString(item?.event_end_date);
     const registration_opens_at = asOptionalString(item?.registration_opens_at);
     const deadline_at = asOptionalString(item?.deadline_at);
 
@@ -179,6 +192,7 @@ function toOccurrences(raw: unknown): Occurrence[] {
     results.push({
       label: asOptionalString(item?.label) ?? "開催",
       event_date,
+      event_end_date,
       registration_opens_at,
       deadline_at,
     });

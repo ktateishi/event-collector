@@ -1,9 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  filterUpcoming,
   getEventById,
   getEventCount,
   groupEventsByKeyword,
   listEvents,
+  selectDeletableEventIds,
   type Event,
 } from "./events";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -139,5 +141,82 @@ describe("groupEventsByKeyword", () => {
 
   it("returns an empty array for no events", () => {
     expect(groupEventsByKeyword([])).toEqual([]);
+  });
+});
+
+describe("filterUpcoming", () => {
+  function eventWithOccurrences(id: string, occurrences: Event["occurrences"]): Event {
+    return {
+      id,
+      title: `event ${id}`,
+      source: "example.com",
+      matched_keyword: "x",
+      matched_via: "direct",
+      confidence: "confirmed",
+      occurrences,
+      created_at: "2026-08-01T00:00:00Z",
+    };
+  }
+
+  const TODAY = "2026-11-15";
+
+  it("removes events whose every occurrence has ended", () => {
+    const ended = eventWithOccurrences("1", [
+      { label: "終了済み", event_date: "2026-09-01", event_end_date: "2026-09-30" },
+    ]);
+
+    expect(filterUpcoming([ended], TODAY)).toEqual([]);
+  });
+
+  it("keeps a touring event as long as one venue is still upcoming", () => {
+    const touring = eventWithOccurrences("2", [
+      { label: "終了済み会場", event_date: "2026-09-01", event_end_date: "2026-09-30" },
+      { label: "開催予定会場", event_date: "2026-12-01" },
+    ]);
+
+    expect(filterUpcoming([touring], TODAY)).toEqual([touring]);
+  });
+
+  it("keeps events with no date information (cannot judge -> do not hide)", () => {
+    const unknown = eventWithOccurrences("3", [{ label: "日程未定" }]);
+
+    expect(filterUpcoming([unknown], TODAY)).toEqual([unknown]);
+  });
+});
+
+describe("selectDeletableEventIds", () => {
+  function eventWithOccurrences(id: string, occurrences: Event["occurrences"]): Event {
+    return {
+      id,
+      title: `event ${id}`,
+      source: "example.com",
+      matched_keyword: "x",
+      matched_via: "direct",
+      confidence: "confirmed",
+      occurrences,
+      created_at: "2026-08-01T00:00:00Z",
+    };
+  }
+
+  const TODAY = "2026-11-15";
+
+  it("selects only events past their end date + grace period", () => {
+    const longOver = eventWithOccurrences("1", [
+      { label: "終了済み", event_date: "2026-01-01", event_end_date: "2026-01-31" },
+    ]);
+    const recentlyOver = eventWithOccurrences("2", [
+      { label: "終了済み", event_date: "2026-11-01", event_end_date: "2026-11-10" },
+    ]);
+    const stillUpcoming = eventWithOccurrences("3", [{ label: "予定", event_date: "2026-12-01" }]);
+
+    const result = selectDeletableEventIds([longOver, recentlyOver, stillUpcoming], TODAY, 30);
+
+    expect(result).toEqual(["1"]);
+  });
+
+  it("never selects events without an explicit end date", () => {
+    const inferredOnly = eventWithOccurrences("4", [{ label: "開始日のみ", event_date: "2025-01-01" }]);
+
+    expect(selectDeletableEventIds([inferredOnly], TODAY, 30)).toEqual([]);
   });
 });

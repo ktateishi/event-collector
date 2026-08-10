@@ -139,4 +139,39 @@ describe("ingestEvents", () => {
     expect(insertCalls).toHaveLength(0);
     expect(updateCalls).toHaveLength(0);
   });
+
+  it("rejects a candidate whose occurrences are already fully over (does not re-add deleted stale events)", async () => {
+    const { client, insertCalls } = fakeClient([]);
+    const alreadyOver: CandidateEvent = {
+      ...validCandidate,
+      occurrences: [
+        { label: "東京会場", event_date: "2026-01-01", event_end_date: "2026-01-31" },
+      ],
+    };
+
+    const result = await ingestEvents(client, [alreadyOver], {
+      dryRun: false,
+      today: "2026-08-10",
+    });
+
+    expect(insertCalls).toHaveLength(0);
+    expect(result.skipped[0].reason).toBe("already_over");
+  });
+
+  it("treats titles that differ only in decorative brackets as duplicates", async () => {
+    const { client, insertCalls } = fakeClient([
+      { id: "existing-id", title: "ホラー・メイズ「バイオハザード レクイエム」ザ・ダイブ", occurrences: [] },
+    ]);
+
+    const reworded: CandidateEvent = {
+      ...validCandidate,
+      title: "ホラー・メイズ「『バイオハザード レクイエム』ザ・ダイブ」",
+    };
+
+    const result = await ingestEvents(client, [reworded], { dryRun: false });
+
+    expect(insertCalls).toHaveLength(0);
+    // occurrencesが増えるのでmergeされるが、新規insertはされない
+    expect(result.inserted).toHaveLength(0);
+  });
 });

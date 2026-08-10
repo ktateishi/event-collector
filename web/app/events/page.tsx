@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { groupEventsByKeyword, listEvents, type Event } from "@/lib/events";
+import { filterUpcoming, groupEventsByKeyword, listEvents, type Event } from "@/lib/events";
 
 export const dynamic = "force-dynamic";
 
@@ -27,14 +27,35 @@ function occurrenceSummary(event: Event): string | null {
     .join(" / ")}${occurrences.length > 3 ? " ほか" : ""}）`;
 }
 
-export default async function EventsPage() {
+export default async function EventsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ all?: string }>;
+}) {
+  const { all } = await searchParams;
+  const showAll = all === "1";
+
   const client = createServerSupabaseClient();
-  const events = await listEvents(client);
+  const allEvents = await listEvents(client);
+  const today = new Date().toISOString().slice(0, 10);
+  const events = showAll ? allEvents : filterUpcoming(allEvents, today);
   const groups = groupEventsByKeyword(events);
+  const hiddenCount = allEvents.length - events.length;
 
   return (
     <main>
       <h1>収集したイベント一覧</h1>
+      {!showAll && hiddenCount > 0 && (
+        <p>
+          終了したイベント{hiddenCount}件を非表示にしています。
+          <Link href="/events?all=1">すべて表示</Link>
+        </p>
+      )}
+      {showAll && (
+        <p>
+          <Link href="/events">開催予定のみ表示に戻す</Link>
+        </p>
+      )}
       {groups.length === 0 && <p>まだイベントがありません。</p>}
       {groups.map((group) => (
         <section key={group.keyword}>

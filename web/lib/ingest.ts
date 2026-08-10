@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { earliestDate, mergeOccurrences, type Occurrence } from "./occurrences";
+import { earliestDate, isAlreadyOver, mergeOccurrences, type Occurrence } from "./occurrences";
+import { normalizeTitle } from "./normalize-title";
 
 export type CandidateEvent = {
   title: string;
@@ -22,7 +23,10 @@ export type IngestResult = {
   /** 既存イベントにoccurrencesを追加したもの（新会場の追加発表など） */
   merged: { title: string; addedOccurrences: number }[];
   wouldInsert: CandidateEvent[];
-  skipped: { candidate: Partial<CandidateEvent>; reason: "duplicate" | "invalid" }[];
+  skipped: {
+    candidate: Partial<CandidateEvent>;
+    reason: "duplicate" | "invalid" | "already_over";
+  }[];
 };
 
 type ExistingEvent = {
@@ -38,9 +42,10 @@ const VALID_CONFIDENCE = new Set(["confirmed", "exploratory"]);
  * 重複判定はtitleのみで行う（sourceは含めない）。同一イベントが複数の
  * ニュースサイト（PR TIMES・ファミ通・公式サイト等）から別々に報じられ、
  * それぞれ抽出されるケースが実運用で確認されたため。
+ * タイトルは括弧・空白等の表記ゆれを吸収してから比較する（Task 20）。
  */
 function dedupeKey(title: string): string {
-  return title.trim().toLowerCase();
+  return normalizeTitle(title);
 }
 
 function isValid(candidate: CandidateEvent): boolean {
@@ -59,8 +64,10 @@ function isValid(candidate: CandidateEvent): boolean {
 export async function ingestEvents(
   client: SupabaseClient,
   candidates: CandidateEvent[],
-  options: { dryRun: boolean }
+  options: { dryRun: boolean; today?: string }
 ): Promise<IngestResult> {
+  const today = options.today ?? new Date().toISOString().slice(0, 10);
+
   const { data: existingRows, error } = await client
     .from("events")
     .select("id, title, occurrences");
@@ -82,9 +89,18 @@ export async function ingestEvents(
       continue;
     }
 
+    const incomingOccurrences = candidate.occurrences ?? [];
+
+    // 収集時点で既に終了しているイベントはそもそも取り込まない（Task 20）。
+    // これをしないと、削除した過去イベントが翌日また「新規」として
+    // 再収集され、LINE通知で終了済みイベントが新着として届いてしまう
+    if (isAlreadyOver(incomingOccurrences, today)) {
+      result.skipped.push({ candidate, reason: "already_over" });
+      continue;
+    }
+
     const key = dedupeKey(candidate.title);
     const existing = existingByKey.get(key);
-    const incomingOccurrences = candidate.occurrences ?? [];
 
     // 既存イベントがある場合はスキップせず、occurrencesをマージして更新する。
     // 後から発表された会場（1回目は2会場、2回目は4会場が判明、等）を

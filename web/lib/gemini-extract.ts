@@ -29,6 +29,9 @@ const EVENT_RESPONSE_SCHEMA = {
                 // （type: ["string","null"]）を受け付けない（400エラー）。
                 // 代わりにnullable:trueを使う必要がある
                 event_date: { type: "string", nullable: true },
+                // event_dateは開始日。終了日が本文に明記されている場合のみ入れる
+                // （推測禁止）。Task 20: 終了済みイベントの自動判定・削除に使う
+                event_end_date: { type: "string", nullable: true },
                 registration_opens_at: { type: "string", nullable: true },
                 deadline_at: { type: "string", nullable: true },
               },
