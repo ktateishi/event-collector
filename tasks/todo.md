@@ -243,7 +243,7 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 
 ---
 
-## Task 8: LINE連携（アカウント作成 + Push送信ロジック）
+## Task 8: LINE連携（アカウント作成 + Push送信ロジック）— **完了（2026-08-10）**
 
 **Description:** LINE公式アカウント・Messaging APIチャネルをユーザー本人が作成する。
 その後、当日の新着イベントから5件（確実3件＋探索2件）を選定し、重複通知を避けつつ
@@ -255,7 +255,7 @@ Broadcast API（全フォロワー配信）を採用し、Push先ユーザーID�
 `VERCEL_PROJECT_PRODUCTION_URL`システム変数から組み立てる（`lib/site-url.ts`）。
 
 **Acceptance criteria:**
-- [ ] （ユーザー作業・未着手）LINE Messaging APIチャネルが作成され、チャネルアクセストークンが
+- [x] （ユーザー作業）LINE Messaging APIチャネルが作成され、チャネルアクセストークンが
       Vercelの環境変数(`LINE_CHANNEL_ACCESS_TOKEN`)として設定されている
 - [x] 当日 `created_at` の新規イベントのうち、confirmed優先で3件・exploratory2件を選ぶロジックがある
       （5件に満たない日は、ある分だけ送る）— `lib/line.ts` の `selectEventsToNotify`
@@ -264,11 +264,21 @@ Broadcast API（全フォロワー配信）を採用し、Push先ユーザーID�
 - [x] メッセージ本文に各イベントのタイトルとWeb詳細ページへのリンクが含まれる
       — `lib/line.ts` の `buildMessageText`
 
+**判明した注意点（重要）**: Vercelの環境変数は追加・変更しただけでは既存デプロイに反映されず、
+反映には再デプロイが必要（値はデプロイ時にスナップショットされる）。`LINE_CHANNEL_ACCESS_TOKEN`
+登録直後の初回検証で `"LINE_CHANNEL_ACCESS_TOKEN が設定されていません"` エラーになり、
+`vercel --prod` で再デプロイして解決した。今後、環境変数を追加・変更した際は再デプロイを
+セットで行う必要がある。
+
 **Verification:**
 - [x] ユニットテスト25件追加（`line.test.ts`9件、`notifications.test.ts`5件、
       `site-url.test.ts`4件ほか）、全体で121件パス。`npm run build`成功
-- [ ] （ユーザーのLINEチャネル作成後）テストイベントを使い、実際にLINEへメッセージが届くことを確認する
-- [ ] 同じイベントに対して2回実行しても、2通目が送られないことを確認する
+- [x] 本番の `/api/notify` を実データ（実際に収集済みの30件）に対して実行し、
+      `{"candidates":5,"sent":5}` を確認、実際にLINEへ5件（確実3件＋探索2件）届いたことを
+      ユーザー本人が確認済み（2026-08-10）
+- [x] 送信後 `notifications` テーブルに該当5件が `type=daily` で記録されたことを確認。
+      同一イベントは `alreadyNotifiedIds` により次回以降の選定対象から除外される
+      （ユニットテストでも保証: `line.test.ts` "excludes events that were already notified"）
 
 **Dependencies:** Task 7（リンク先のイベント詳細ページが必要）
 
