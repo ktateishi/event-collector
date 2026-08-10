@@ -43,7 +43,9 @@ export async function GET(request: Request) {
   for (const { keyword } of keywords) {
     try {
       const found = await collectEventsForKeyword(geminiEnv, keyword);
-      candidates.push(...found);
+      // どの登録キーワードのために収集したかを記録する（カテゴリ分け用、Task 17）。
+      // matched_keywordは「実際に一致した語」で拡張語が入りうるため別に持つ
+      candidates.push(...found.map((event) => ({ ...event, source_keyword: keyword })));
     } catch (error) {
       errors.push({
         keyword,
@@ -58,6 +60,7 @@ export async function GET(request: Request) {
     keywords: keywords.length,
     collected: candidates.length,
     inserted: result.inserted.length,
+    merged: result.merged.length,
     skipped: result.skipped.length,
     errors,
   });

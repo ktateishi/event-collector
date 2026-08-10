@@ -18,14 +18,25 @@ const EVENT_RESPONSE_SCHEMA = {
           // URLは文字列としてモデルに書かせない（推測・混同による404/誤リンクの原因になるため）。
           // 代わりにpage_id（渡したページの番号）を返させ、呼び出し側で実URLに解決する
           page_id: { type: "integer" },
-          // 注意: Vertex AIのresponseSchemaはJSON Schema標準のtype配列
-          // （type: ["string","null"]）を受け付けない（400エラー）。
-          // 代わりにnullable:trueを使う必要がある
-          event_date: { type: "string", nullable: true },
-          registration_opens_at: { type: "string", nullable: true },
-          deadline_at: { type: "string", nullable: true },
+          // 同一イベントの複数会場・複数地域（Task 18）。単一開催でも1件入れる
+          occurrences: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                label: { type: "string" },
+                // 注意: Vertex AIのresponseSchemaはJSON Schema標準のtype配列
+                // （type: ["string","null"]）を受け付けない（400エラー）。
+                // 代わりにnullable:trueを使う必要がある
+                event_date: { type: "string", nullable: true },
+                registration_opens_at: { type: "string", nullable: true },
+                deadline_at: { type: "string", nullable: true },
+              },
+              required: ["label"],
+            },
+          },
         },
-        required: ["title", "source", "page_id", "matched_via", "matched_term"],
+        required: ["title", "source", "page_id", "matched_via", "matched_term", "occurrences"],
       },
     },
   },

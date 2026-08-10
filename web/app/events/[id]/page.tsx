@@ -27,9 +27,12 @@ export default async function EventDetailPage({
     notFound();
   }
 
+  const occurrences = event.occurrences ?? [];
+
   return (
     <main>
       <h1>{event.title}</h1>
+      {event.source_keyword && <p>カテゴリ: {event.source_keyword}</p>}
       <p>
         判定: {CONFIDENCE_LABEL[event.confidence] ?? event.confidence}（
         {MATCHED_VIA_LABEL[event.matched_via] ?? event.matched_via}: {event.matched_keyword}）
@@ -47,25 +50,22 @@ export default async function EventDetailPage({
             </dd>
           </>
         )}
-        {event.event_date && (
-          <>
-            <dt>開催日</dt>
-            <dd>{event.event_date}</dd>
-          </>
-        )}
-        {event.registration_opens_at && (
-          <>
-            <dt>受付開始</dt>
-            <dd>{event.registration_opens_at}</dd>
-          </>
-        )}
-        {event.deadline_at && (
-          <>
-            <dt>締切</dt>
-            <dd>{event.deadline_at}</dd>
-          </>
-        )}
       </dl>
+
+      <h2>開催情報（{occurrences.length}件）</h2>
+      {occurrences.length === 0 && <p>開催情報が登録されていません。</p>}
+      <ul>
+        {occurrences.map((occurrence, index) => (
+          <li key={`${occurrence.label}-${occurrence.event_date ?? index}`}>
+            <strong>{occurrence.label}</strong>
+            {occurrence.event_date && <span> — 開催日: {occurrence.event_date}</span>}
+            {occurrence.registration_opens_at && (
+              <span> / 受付開始: {occurrence.registration_opens_at}</span>
+            )}
+            {occurrence.deadline_at && <span> / 締切: {occurrence.deadline_at}</span>}
+          </li>
+        ))}
+      </ul>
     </main>
   );
 }

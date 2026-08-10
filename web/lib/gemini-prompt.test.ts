@@ -41,6 +41,15 @@ describe("buildExtractionPrompt", () => {
     expect(prompt).toContain("本文B");
     expect(prompt).toContain("page_id");
   });
+
+  it("instructs the model to merge multi-venue events into a single event", () => {
+    const prompt = buildExtractionPrompt("エヴァンゲリオン", [
+      { url: "https://a.example/1", text: "本文A" },
+    ]);
+
+    expect(prompt).toContain("occurrences");
+    expect(prompt).toContain("1件");
+  });
 });
 
 describe("parseGeminiCandidates", () => {
@@ -54,9 +63,7 @@ describe("parseGeminiCandidates", () => {
         page_id: 1,
         matched_via: "direct",
         matched_term: "鬼滅の刃",
-        event_date: "2026-09-15",
-        registration_opens_at: null,
-        deadline_at: null,
+        occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
       },
       {
         title: "MAPPA EXPO",
@@ -64,9 +71,10 @@ describe("parseGeminiCandidates", () => {
         page_id: 2,
         matched_via: "expanded",
         matched_term: "MAPPA",
-        event_date: "2026-09-16",
-        registration_opens_at: null,
-        deadline_at: "2026-12-07T14:59:59+09:00",
+        occurrences: [
+          { label: "大阪会場", event_date: "2026-10-01" },
+          { label: "東京会場", event_date: "2026-09-16", deadline_at: "2026-12-07T14:59:59+09:00" },
+        ],
       },
     ],
   });
@@ -91,6 +99,13 @@ describe("parseGeminiCandidates", () => {
     });
   });
 
+  it("keeps all occurrences and uses the earliest date as the event's representative date", () => {
+    const result = parseGeminiCandidates(validJson, pages);
+
+    expect(result[1].occurrences).toHaveLength(2);
+    expect(result[1].event_date).toBe("2026-09-16");
+  });
+
   it("drops events whose page_id is out of range (prevents URL confusion/hallucination)", () => {
     const json = JSON.stringify({
       events: [
@@ -100,7 +115,7 @@ describe("parseGeminiCandidates", () => {
           page_id: 99,
           matched_via: "direct",
           matched_term: "鬼滅の刃",
-          event_date: "2026-09-15",
+          occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
         },
       ],
     });
@@ -108,7 +123,7 @@ describe("parseGeminiCandidates", () => {
     expect(parseGeminiCandidates(json, pages)).toHaveLength(0);
   });
 
-  it("drops events with no date information at all", () => {
+  it("drops events whose occurrences all lack date information", () => {
     const json = JSON.stringify({
       events: [
         {
@@ -117,9 +132,26 @@ describe("parseGeminiCandidates", () => {
           page_id: 1,
           matched_via: "direct",
           matched_term: "鬼滅の刃",
-          event_date: null,
-          registration_opens_at: null,
-          deadline_at: null,
+          occurrences: [
+            { label: "東京会場", event_date: null, registration_opens_at: null, deadline_at: null },
+          ],
+        },
+      ],
+    });
+
+    expect(parseGeminiCandidates(json, pages)).toHaveLength(0);
+  });
+
+  it("drops events with no occurrences at all", () => {
+    const json = JSON.stringify({
+      events: [
+        {
+          title: "occurrencesなし",
+          source: "example.com",
+          page_id: 1,
+          matched_via: "direct",
+          matched_term: "鬼滅の刃",
+          occurrences: [],
         },
       ],
     });

@@ -479,7 +479,7 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 
 ---
 
-### Task 17: イベント一覧のカテゴリ分け表示
+### Task 17: イベント一覧のカテゴリ分け表示 — **完了（2026-08-10）**
 
 **Description:** `/events` が全件フラットな一覧で、どのキーワード（バイオハザード／
 エヴァンゲリオン等）についての情報か一見して分かりにくいとの指摘。
@@ -494,13 +494,14 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 過去に収集したイベントが「所属不明」にならず意味を保てるため。
 
 **Acceptance criteria:**
-- [ ] `events` に `source_keyword text` 列を追加するマイグレーションがある
-- [ ] `/api/cron/collect` が新規イベント作成時に `source_keyword` をセットする
-- [ ] `/events` が `source_keyword` ごとにグループ化して表示される
-- [ ] `source_keyword` が空のイベントは「未分類」として表示される（後方互換）
+- [x] `events` に `source_keyword text` 列を追加するマイグレーションがある
+- [x] `/api/cron/collect` が新規イベント作成時に `source_keyword` をセットする
+- [x] `/events` が `source_keyword` ごとにグループ化して表示される
+- [x] `source_keyword` が空のイベントは「未分類」として表示される（後方互換）
 
 **Verification:**
-- [ ] 2つのキーワードを登録して収集し、一覧がキーワードごとに分かれて表示される
+- [x] 本番環境で「エヴァンゲリオン」「バイオハザード」を収集し、一覧が
+      キーワードごとに分かれて表示されることを確認（実データ、削除せず保持）
 
 **Dependencies:** Task 7, Task 5
 
@@ -512,7 +513,7 @@ Instagram Graph APIでの検索ステップを追加する。ただし公式API�
 
 ---
 
-### Task 18: 類似・重複イベントの統合（occurrences方式）
+### Task 18: 類似・重複イベントの統合（occurrences方式）— **完了（2026-08-10）**
 
 **Description:** 同一イベントの開催地違い（例: ALL OF EVANGELION 名古屋会場/大阪会場）や
 公開地域違い（全米公開/日本公開）が、別々の行として大量に並び見通しが悪いとの指摘。
@@ -546,17 +547,20 @@ occurrences jsonb  -- 例:
 トップレベルの `event_date` 等は「最も近い開催予定」を入れ、並び替え・リマインド判定に使う。
 
 **Acceptance criteria:**
-- [ ] `events` に `occurrences jsonb` 列を追加するマイグレーションがある
-- [ ] `buildExtractionPrompt` に「同一イベントの複数会場・複数地域は1件にまとめ、
+- [x] `events` に `occurrences jsonb` 列を追加するマイグレーションがある
+- [x] `buildExtractionPrompt` に「同一イベントの複数会場・複数地域は1件にまとめ、
       各会場は occurrences として列挙する」指示と具体例が含まれる
-- [ ] `responseSchema` に occurrences 配列が定義されている
-- [ ] `ingestEvents` が、既存イベントと同一タイトルの場合にスキップではなく
+- [x] `responseSchema` に occurrences 配列が定義されている
+- [x] `ingestEvents` が、既存イベントと同一タイトルの場合にスキップではなく
       **occurrences をマージして更新**する（新会場の取りこぼしを防ぐ）
-- [ ] 一覧では1件として表示され、詳細ページで全会場が確認できる
+- [x] 一覧では1件として表示され、詳細ページで全会場が確認できる
 
 **Verification:**
-- [ ] 「エヴァンゲリオン」で収集し、ALL OF EVANGELION が会場ごとではなく1件で表示される
-- [ ] occurrences の少ない状態から多い状態へ再収集した際、会場が失われずマージされる
+- [x] 本番で「エヴァンゲリオン」を収集し、EVANGELION WIND SYMPHONY2026 が
+      東京/兵庫の2会場ではなく1件（occurrences 2件）で表示されることを確認
+- [x] 同じキーワードで再収集し、`merged: 3` を確認。既存イベントに新しいoccurrenceが
+      追加され（例: 横浜ウォーターフロント施設のライトアップが最終的に7件のoccurrenceに
+      統合）、重複行が発生しないことを確認
 
 **Dependencies:** Task 7, Task 5
 

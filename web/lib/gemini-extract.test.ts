@@ -32,9 +32,7 @@ describe("extractEventsFromPages", () => {
           page_id: 1,
           matched_via: "direct",
           matched_term: "鬼滅の刃",
-          event_date: "2026-09-15",
-          registration_opens_at: null,
-          deadline_at: null,
+          occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
         },
       ],
     });
