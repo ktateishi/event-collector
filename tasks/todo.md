@@ -249,22 +249,32 @@ Supabaseクライアントを組み込み、DBから1件読み取って表示す
 その後、当日の新着イベントから5件（確実3件＋探索2件）を選定し、重複通知を避けつつ
 LINE Push APIで送信するロジックを実装する。メッセージにはWeb詳細ページへのリンクを含める。
 
+**実装メモ（2026-08-10）**: 個人利用（1アカウントのみ）が前提のため、送信はLINEの
+Broadcast API（全フォロワー配信）を採用し、Push先ユーザーIDの管理は行わない。
+リンクのベースURLは新規env var追加を避け、Vercelが自動提供する
+`VERCEL_PROJECT_PRODUCTION_URL`システム変数から組み立てる（`lib/site-url.ts`）。
+
 **Acceptance criteria:**
-- [ ] （ユーザー作業）LINE Messaging APIチャネルが作成され、チャネルアクセストークンが
-      Vercelの環境変数として設定されている
-- [ ] 当日 `created_at` の新規イベントのうち、confirmed優先で3件・exploratory2件を選ぶロジックがある
-      （5件に満たない日は、ある分だけ送る）
-- [ ] `notifications` テーブルを見て、既に送信済みのイベントを再送しない
-- [ ] メッセージ本文に各イベントのタイトルとWeb詳細ページへのリンクが含まれる
+- [ ] （ユーザー作業・未着手）LINE Messaging APIチャネルが作成され、チャネルアクセストークンが
+      Vercelの環境変数(`LINE_CHANNEL_ACCESS_TOKEN`)として設定されている
+- [x] 当日 `created_at` の新規イベントのうち、confirmed優先で3件・exploratory2件を選ぶロジックがある
+      （5件に満たない日は、ある分だけ送る）— `lib/line.ts` の `selectEventsToNotify`
+- [x] `notifications` テーブルを見て、既に送信済みのイベントを再送しない
+      — `lib/notifications.ts`、`(event_id, type)`一意制約 + upsert ignoreDuplicates
+- [x] メッセージ本文に各イベントのタイトルとWeb詳細ページへのリンクが含まれる
+      — `lib/line.ts` の `buildMessageText`
 
 **Verification:**
-- [ ] テストイベントを使い、実際にLINEへメッセージが届くことを確認する
+- [x] ユニットテスト25件追加（`line.test.ts`9件、`notifications.test.ts`5件、
+      `site-url.test.ts`4件ほか）、全体で121件パス。`npm run build`成功
+- [ ] （ユーザーのLINEチャネル作成後）テストイベントを使い、実際にLINEへメッセージが届くことを確認する
 - [ ] 同じイベントに対して2回実行しても、2通目が送られないことを確認する
 
 **Dependencies:** Task 7（リンク先のイベント詳細ページが必要）
 
 **Files likely touched:**
-- `web/app/api/notify/route.ts`, `web/lib/line.ts`
+- `web/app/api/notify/route.ts`, `web/lib/line.ts`, `web/lib/notifications.ts`（新規）,
+  `web/lib/site-url.ts`（新規）
 
 **Estimated scope:** M
 
