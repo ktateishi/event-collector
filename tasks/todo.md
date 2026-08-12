@@ -299,7 +299,7 @@ Broadcast API（全フォロワー配信）を採用し、Push先ユーザーID�
 
 ---
 
-## Task 9: Push送信の自動起動 — **実装完了、実地検証待ち（2026-08-12）**
+## Task 9: Push送信の自動起動 — **完了（2026-08-13）**
 
 **Description:** 収集ルーチン完了後に、Task 8のPush送信ロジックが自動的に起動する仕組みを作る。
 Vercel Cron（毎日07:00過ぎの固定時刻）と、収集ルーチン完了時のWebhook呼び出しのどちらかを選ぶ
@@ -325,10 +325,23 @@ Push送信ロジック本体は`lib/notify.ts`の`runDailyNotify`に抽出し、
 - [x] 収集が0件だった日は、Push送信がスキップされる（空メッセージを送らない）
       — `selectEventsToNotify`が0件を返せば`sendBroadcast`は何もしない（既存テストで保証）
 
+**判明した障害と修正（2026-08-13）**: 実地検証の過程で2件の不具合を発見・修正した。
+1. **収集Cronのタイムアウト**: キーワードが2→4件に増えたことで、逐次処理の合計時間が
+   `maxDuration`(300秒)を超過し実際にタイムアウト（Vercelログで確認、収集もPush送信も
+   未実行のままKillされていた）。キーワード処理をPromise.allSettledで並列化して解消
+   （`web/app/api/cron/collect/route.ts`）。
+2. **`created_at`のJST変換漏れ**: 前日`todayInJst()`を導入したが、`lib/line.ts`の
+   `isCreatedOn`が`event.created_at`（UTC）をJST変換せずそのままsliceして比較しており、
+   比較の両辺でタイムゾーンが揃っていなかった。07:00〜09:00 JSTに収集されたイベントの
+   `created_at`はUTC表記だと前日日付のままなので、いつまでも「今日」と判定されず
+   通知対象に選ばれなかった。`lib/today.ts`に`dateInJst()`を追加し、「今日」の計算・
+   `created_at`の判定の両方をこの関数経由に統一して解消。
+
 **Verification:**
-- [x] ユニットテスト4件追加（`notify.test.ts`）、全体で152件パス。`npm run build`成功
-- [ ] 実際のcron実行（07:00 JST）後、追加操作なしにLINEへ通知が届くことを確認する
-      （2026-08-12時点で本日分の新規イベントがまだなく未検証。翌日以降の自動収集で確認予定）
+- [x] ユニットテスト4件追加（`notify.test.ts`）、全体で157件パス。`npm run build`成功
+- [x] 上記2件の修正後、本番の`/api/notify`を実行し`{"candidates":5,"sent":5}`を確認。
+      実際にLINEへFlex Messageカルーセル（5枚）が届き、見た目に問題がないことを
+      ユーザー本人が確認済み（2026-08-13）
 
 **Dependencies:** Task 6, Task 8
 
@@ -340,16 +353,17 @@ Push送信ロジック本体は`lib/notify.ts`の`runDailyNotify`に抽出し、
 
 ---
 
-## Task 10: LINE通知タップ→Web詳細ページ遷移の確認
+## Task 10: LINE通知タップ→Web詳細ページ遷移の確認 — **完了（2026-08-13）**
 
 **Description:** Task 8で組み込んだリンクが、実際にLINEアプリからタップして
 正しくWeb詳細ページに遷移することを確認する。
 
 **Acceptance criteria:**
-- [ ] スマホのLINEで通知を受け取り、タップすると該当イベントの詳細ページが開く
+- [x] スマホのLINEで通知を受け取り、タップすると該当イベントの詳細ページが開く
 
 **Verification:**
-- [ ] 実機での動作確認（手動）
+- [x] 実機での動作確認（手動）。Flex Messageカードの「詳細を見る」ボタンから
+      該当イベントの詳細ページに正しく遷移することを確認済み
 
 **Dependencies:** Task 9
 
@@ -360,8 +374,8 @@ Push送信ロジック本体は`lib/notify.ts`の`runDailyNotify`に抽出し、
 ---
 
 ## Checkpoint: 通知ループ（Task 8-10 完了後）
-- [ ] 収集→DB反映→5件選定→LINE Push→タップでWeb遷移が一気通貫で動く
-- [ ] 人間によるレビュー（実機のLINEで確認）
+- [x] 収集→DB反映→5件選定→LINE Push→タップでWeb遷移が一気通貫で動く
+- [x] 人間によるレビュー（実機のLINEで確認、2026-08-13）
 
 ---
 
