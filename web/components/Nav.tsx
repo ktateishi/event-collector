@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const LINKS = [
   { href: "/events", label: "イベント一覧" },
   { href: "/keywords", label: "キーワード管理" },
+  { href: "/settings", label: "設定" },
 ];
 
 function isActive(pathname: string, href: string): boolean {

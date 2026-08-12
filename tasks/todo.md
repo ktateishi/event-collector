@@ -379,23 +379,36 @@ Push送信ロジック本体は`lib/notify.ts`の`runDailyNotify`に抽出し、
 
 ---
 
-## Task 11: 設定画面（リマインドのタイミング）
+## Task 11: 設定画面（リマインドのタイミング） — **完了（2026-08-13）**
 
 **Description:** `reminder_settings` テーブルを操作するUIを作る。「何日前に再通知するか」を
 数値で設定・保存できるようにする。
 
+**実装メモ**: `reminder_settings`はUPDATEではなく常に新しい行をINSERTする運用
+（`supabase/migrations/0001_init.sql`のコメントどおり）。アプリは常に
+`created_at`最大の1行を読む（`lib/reminder-settings.ts`）。日数は0以上の整数のみ許可。
+Nav（`components/Nav.tsx`）に「設定」リンクを追加し、Task 19のデザインシステムに
+揃えたカードベースのUIにした。
+
 **Acceptance criteria:**
-- [ ] 現在の設定値（日数）が表示される
-- [ ] 値を変更して保存できる
-- [ ] 保存後、即座に新しい設定値が反映される（再デプロイ不要）
+- [x] 現在の設定値（日数）が表示される
+- [x] 値を変更して保存できる
+- [x] 保存後、即座に新しい設定値が反映される（再デプロイ不要）— クライアント側stateを
+      APIレスポンスで更新するため、ページ再読み込み不要で即座に反映される
 
 **Verification:**
-- [ ] 設定値を変更し、Supabaseダッシュボード上の値が更新されていることを確認する
+- [x] ユニットテスト7件追加（`reminder-settings.test.ts`）、全体で164件パス。`npm run build`成功
+- [x] ブラウザで実際に値を5→保存→即座に画面へ反映されることを確認。ローカルdevは本番と
+      同じSupabaseに接続されているため、Supabase上の`reminder_settings`テーブルにも
+      実際に新しい行が追加されたことを確認（動作確認自体がVerification要件を兼ねた）。
+      確認後の値はユーザーの指示で最終的に`days_before: 1`にしている
 
 **Dependencies:** Task 3
 
 **Files likely touched:**
-- `web/app/settings/page.tsx`, `web/app/api/settings/route.ts`
+- `web/app/settings/page.tsx`, `web/app/settings/SettingsForm.tsx`（新規）,
+  `web/app/api/settings/route.ts`（新規）, `web/lib/reminder-settings.ts`（新規）,
+  `web/components/Nav.tsx`（「設定」リンク追加）
 
 **Estimated scope:** S
 
