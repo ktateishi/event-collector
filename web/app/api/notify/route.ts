@@ -1,12 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { listEvents } from "@/lib/events";
-import { listNotifiedEventIds, recordNotifications } from "@/lib/notifications";
-import { selectEventsToNotify, sendBroadcast } from "@/lib/line";
-import { getSiteUrl } from "@/lib/site-url";
-import { todayInJst } from "@/lib/today";
-
-const DAILY_TYPE = "daily";
+import { runDailyNotify } from "@/lib/notify";
 
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET;
@@ -16,31 +10,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   }
 
-  const channelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
-
-  if (!channelAccessToken) {
+  try {
+    const client = createServerSupabaseClient();
+    const result = await runDailyNotify(client, process.env.LINE_CHANNEL_ACCESS_TOKEN);
+    return NextResponse.json(result);
+  } catch (error) {
     return NextResponse.json(
-      { error: "LINE_CHANNEL_ACCESS_TOKEN が設定されていません" },
+      { error: error instanceof Error ? error.message : "unknown error" },
       { status: 500 }
     );
   }
-
-  const client = createServerSupabaseClient();
-  const events = await listEvents(client);
-  const today = todayInJst();
-  const alreadyNotifiedIds = await listNotifiedEventIds(client, DAILY_TYPE);
-  const toNotify = selectEventsToNotify(events, alreadyNotifiedIds, today);
-
-  if (toNotify.length === 0) {
-    return NextResponse.json({ candidates: 0, sent: 0 });
-  }
-
-  await sendBroadcast(toNotify, getSiteUrl(), channelAccessToken);
-  await recordNotifications(
-    client,
-    toNotify.map((event) => event.id),
-    DAILY_TYPE
-  );
-
-  return NextResponse.json({ candidates: toNotify.length, sent: toNotify.length });
 }

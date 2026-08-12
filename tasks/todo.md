@@ -288,25 +288,53 @@ Broadcast API（全フォロワー配信）を採用し、Push先ユーザーID�
 
 **Estimated scope:** M
 
+**追記（2026-08-10〜12、ユーザー要望によるフォローアップ）**: 完了後、テキストのみの
+通知をLINE Flex Messageのカルーセル形式（画像付きカード5枚）に変更した。
+`events`に`category`/`summary`/`image_url`列を追加し、Gemini抽出時に分類・要約・
+実画像（og:image）を取得、カード背景はevent画像→カテゴリアイコン（自作PNG）の
+順にフォールバックする決定的な選択にした。詳細はgitログ参照
+（"LINE通知をFlex Messageカルーセル形式に変更"、"今日の日付判定をJST基準に修正"）。
+この過程で、`today`計算がUTC基準だったため07:00〜09:00 JSTの間「今日収集した
+イベント」の判定が1日ずれるバグを発見・修正（`lib/today.ts`）。
+
 ---
 
-## Task 9: Push送信の自動起動
+## Task 9: Push送信の自動起動 — **実装完了、実地検証待ち（2026-08-12）**
 
 **Description:** 収集ルーチン完了後に、Task 8のPush送信ロジックが自動的に起動する仕組みを作る。
 Vercel Cron（毎日07:00過ぎの固定時刻）と、収集ルーチン完了時のWebhook呼び出しのどちらかを選ぶ
 （着手時に判断、[plan.md](plan.md) Open Questions参照）。
 
+**採用方式（2026-08-12確定）**: 固定時刻のVercel Cronは不採用。収集（`/api/cron/collect`）と
+通知の間に時間差を置く方式だと、収集が想定より長くかかった場合に「未完了のうちに通知が走り、
+後から挿入された当日分イベントが二度と通知されない」レースコンディションが起こり得る
+（`selectEventsToNotify`は`created_at`が「今日」のものだけを対象にするため、通知漏れが
+その日限りで回復不能になる）。そのため**収集ルーチンの同一リクエスト内で、収集完了直後に
+`runDailyNotify`を直接呼び出す**方式にした（Webhookという名の実質は関数呼び出し）。
+新規Vercel Cronエントリの追加は不要。
+
+Push送信ロジック本体は`lib/notify.ts`の`runDailyNotify`に抽出し、`/api/notify`
+（手動実行用）と`/api/cron/collect`（自動起動）の両方から共有する。通知側の失敗
+（トークン未設定・LINE API障害等）で収集自体の成功レスポンスを壊さないよう、
+`/api/cron/collect`側ではtry/catchで囲み、レスポンスの`notify`フィールドに
+結果またはエラーを含める形にした。
+
 **Acceptance criteria:**
-- [ ] 収集ルーチンの完了後、人手を介さずにLINE Pushが送信される
-- [ ] 収集が0件だった日は、Push送信がスキップされる（空メッセージを送らない）
+- [x] 収集ルーチンの完了後、人手を介さずにLINE Pushが送信される
+      （`/api/cron/collect`が内部で`runDailyNotify`を呼ぶ）
+- [x] 収集が0件だった日は、Push送信がスキップされる（空メッセージを送らない）
+      — `selectEventsToNotify`が0件を返せば`sendBroadcast`は何もしない（既存テストで保証）
 
 **Verification:**
-- [ ] cron実行後、追加操作なしにLINEへ通知が届くことを確認する
+- [x] ユニットテスト4件追加（`notify.test.ts`）、全体で152件パス。`npm run build`成功
+- [ ] 実際のcron実行（07:00 JST）後、追加操作なしにLINEへ通知が届くことを確認する
+      （2026-08-12時点で本日分の新規イベントがまだなく未検証。翌日以降の自動収集で確認予定）
 
 **Dependencies:** Task 6, Task 8
 
 **Files likely touched:**
-- `web/vercel.json`（Cron設定）または `prompts/daily-routine.md`（Webhook呼び出し追加）
+- `web/lib/notify.ts`（新規、`runDailyNotify`）, `web/app/api/notify/route.ts`（薄いラッパーに変更）,
+  `web/app/api/cron/collect/route.ts`（収集完了後に`runDailyNotify`を呼ぶ）
 
 **Estimated scope:** S
 

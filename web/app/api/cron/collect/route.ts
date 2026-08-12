@@ -3,8 +3,22 @@ import { createServerSupabaseClient } from "@/lib/supabase";
 import { listKeywords } from "@/lib/keywords";
 import { collectEventsForKeyword } from "@/lib/gemini";
 import { ingestEvents, type CandidateEvent } from "@/lib/ingest";
+import { runDailyNotify } from "@/lib/notify";
 
 export const maxDuration = 300;
+
+/**
+ * 収集直後にLINE Pushを自動送信する（Task 9）。収集自体は成功しているため、
+ * 通知側の失敗（トークン未設定・LINE API障害等）でレスポンス全体を失敗させず、
+ * notifyフィールドにエラーを含めて返す。
+ */
+async function notifyAfterCollect(client: ReturnType<typeof createServerSupabaseClient>) {
+  try {
+    return await runDailyNotify(client, process.env.LINE_CHANNEL_ACCESS_TOKEN);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "unknown error" };
+  }
+}
 
 function getGeminiEnv() {
   const projectId = process.env.GCP_PROJECT_ID;
@@ -33,7 +47,14 @@ export async function GET(request: Request) {
   const keywords = await listKeywords(client);
 
   if (keywords.length === 0) {
-    return NextResponse.json({ keywords: 0, collected: 0, inserted: 0, skipped: 0, errors: [] });
+    return NextResponse.json({
+      keywords: 0,
+      collected: 0,
+      inserted: 0,
+      skipped: 0,
+      errors: [],
+      notify: await notifyAfterCollect(client),
+    });
   }
 
   const geminiEnv = getGeminiEnv();
@@ -63,5 +84,6 @@ export async function GET(request: Request) {
     merged: result.merged.length,
     skipped: result.skipped.length,
     errors,
+    notify: await notifyAfterCollect(client),
   });
 }
