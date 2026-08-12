@@ -47,9 +47,22 @@ describe("selectEventsToNotify", () => {
   });
 
   it("excludes events created on a different day", () => {
-    const events = [event("1", "confirmed", { created_at: "2026-08-09T23:00:00Z" })];
+    // 10:00 UTC = 19:00 JST、前日のうちに収まる（JST境界を跨がない明確なケース）
+    const events = [event("1", "confirmed", { created_at: "2026-08-09T10:00:00Z" })];
 
     expect(selectEventsToNotify(events, new Set(), TODAY)).toEqual([]);
+  });
+
+  it("judges 'today' in JST, not the raw UTC date embedded in created_at", () => {
+    // 実際に発生したバグ: 22:57 UTC(Aug 9)は07:57 JST(Aug 10)であり、
+    // JSTでは「8/10に収集された」イベントなのに、UTCそのままの判定だと
+    // created_atの日付部分が"2026-08-09"のままなので「8/10ではない」と
+    // 誤判定され、いつまでも通知対象に選ばれなかった
+    const events = [event("1", "confirmed", { created_at: "2026-08-09T22:57:00Z" })];
+
+    const result = selectEventsToNotify(events, new Set(), TODAY);
+
+    expect(result.map((e) => e.id)).toEqual(["1"]);
   });
 
   it("excludes events that were already notified", () => {

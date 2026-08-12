@@ -1,5 +1,6 @@
 import type { Event } from "./events";
 import { categoryIconUrl } from "./line-icons";
+import { dateInJst } from "./today";
 
 const CONFIRMED_QUOTA = 3;
 const EXPLORATORY_QUOTA = 2;
@@ -23,7 +24,7 @@ function isLikelyImageUrl(url: string | undefined): url is string {
 }
 
 function isCreatedOn(event: Event, date: string): boolean {
-  return event.created_at.slice(0, 10) === date;
+  return dateInJst(event.created_at) === date;
 }
 
 /**
