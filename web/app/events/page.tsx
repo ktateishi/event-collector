@@ -5,6 +5,7 @@ import { categoryColorClass } from "@/lib/colors";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { EventRow } from "@/components/EventRow";
+import { todayInJst } from "@/lib/today";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +19,7 @@ export default async function EventsPage({
 
   const client = createServerSupabaseClient();
   const allEvents = await listEvents(client);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInJst();
   const events = showAll ? allEvents : filterUpcoming(allEvents, today);
   const groups = groupEventsByKeyword(events);
   const hiddenCount = allEvents.length - events.length;

@@ -4,6 +4,7 @@ import { listEvents } from "@/lib/events";
 import { listNotifiedEventIds, recordNotifications } from "@/lib/notifications";
 import { selectEventsToNotify, sendBroadcast } from "@/lib/line";
 import { getSiteUrl } from "@/lib/site-url";
+import { todayInJst } from "@/lib/today";
 
 const DAILY_TYPE = "daily";
 
@@ -26,7 +27,7 @@ export async function GET(request: Request) {
 
   const client = createServerSupabaseClient();
   const events = await listEvents(client);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInJst();
   const alreadyNotifiedIds = await listNotifiedEventIds(client, DAILY_TYPE);
   const toNotify = selectEventsToNotify(events, alreadyNotifiedIds, today);
 

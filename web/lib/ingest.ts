@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { earliestDate, isAlreadyOver, mergeOccurrences, type Occurrence } from "./occurrences";
 import { normalizeTitle } from "./normalize-title";
 import { EVENT_CATEGORIES, type EventCategory } from "./events";
+import { todayInJst } from "./today";
 
 export type CandidateEvent = {
   title: string;
@@ -76,7 +77,7 @@ export async function ingestEvents(
   candidates: CandidateEvent[],
   options: { dryRun: boolean; today?: string }
 ): Promise<IngestResult> {
-  const today = options.today ?? new Date().toISOString().slice(0, 10);
+  const today = options.today ?? todayInJst();
 
   const { data: existingRows, error } = await client
     .from("events")

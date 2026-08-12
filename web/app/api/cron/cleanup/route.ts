@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
 import { listEvents, selectDeletableEventIds } from "@/lib/events";
+import { todayInJst } from "@/lib/today";
 
 // 全occurrenceの終了から何日待って物理削除するか（tasks/todo.md Task 20で確定）
 const GRACE_PERIOD_DAYS = 30;
@@ -15,7 +16,7 @@ export async function GET(request: Request) {
 
   const client = createServerSupabaseClient();
   const events = await listEvents(client);
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInJst();
   const deletableIds = selectDeletableEventIds(events, today, GRACE_PERIOD_DAYS);
 
   if (deletableIds.length === 0) {

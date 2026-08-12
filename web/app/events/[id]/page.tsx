@@ -12,6 +12,7 @@ import {
   URGENCY_CLASS,
   URGENCY_LABEL,
 } from "@/components/badgeStyles";
+import { todayInJst } from "@/lib/today";
 
 export const dynamic = "force-dynamic";
 
@@ -34,7 +35,7 @@ export default async function EventDetailPage({
   }
 
   const occurrences = event.occurrences ?? [];
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInJst();
 
   return (
     <main className="flex flex-col gap-6">
