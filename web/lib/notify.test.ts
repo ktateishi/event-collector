@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { runDailyNotify } from "./notify";
+import { todayInJst } from "./today";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Event } from "./events";
 
-const TODAY = new Date().toISOString().slice(0, 10);
+// runDailyNotify内部の「今日」判定はJST基準（lib/today.ts）のため、テストの
+// created_atもJST基準で揃える必要がある（UTC基準だと07:00-09:00 JSTの間だけ失敗する）
+const TODAY = todayInJst();
 
 function todaysEvent(id: string, confidence: Event["confidence"]): Event {
   return {

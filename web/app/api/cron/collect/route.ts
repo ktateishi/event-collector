@@ -58,22 +58,33 @@ export async function GET(request: Request) {
   }
 
   const geminiEnv = getGeminiEnv();
-  const candidates: CandidateEvent[] = [];
-  const errors: { keyword: string; message: string }[] = [];
 
-  for (const { keyword } of keywords) {
-    try {
+  // キーワードごとの収集は互いに独立しているため並列実行する。
+  // 逐次実行だとキーワード数に比例して合計時間が伸び、maxDuration(300秒)を
+  // 超えてタイムアウトする（実際にキーワードが2→4件に増えた際に発生・発覚した障害）。
+  // 並列化すれば合計時間は「最も遅い1キーワード分」で済み、件数が増えても安定する
+  const settled = await Promise.allSettled(
+    keywords.map(async ({ keyword }) => {
       const found = await collectEventsForKeyword(geminiEnv, keyword);
       // どの登録キーワードのために収集したかを記録する（カテゴリ分け用、Task 17）。
       // matched_keywordは「実際に一致した語」で拡張語が入りうるため別に持つ
-      candidates.push(...found.map((event) => ({ ...event, source_keyword: keyword })));
-    } catch (error) {
-      errors.push({
-        keyword,
-        message: error instanceof Error ? error.message : "unknown error",
-      });
+      return found.map((event) => ({ ...event, source_keyword: keyword }));
+    })
+  );
+
+  const candidates: CandidateEvent[] = [];
+  const errors: { keyword: string; message: string }[] = [];
+
+  settled.forEach((outcome, index) => {
+    if (outcome.status === "fulfilled") {
+      candidates.push(...outcome.value);
+      return;
     }
-  }
+    errors.push({
+      keyword: keywords[index].keyword,
+      message: outcome.reason instanceof Error ? outcome.reason.message : "unknown error",
+    });
+  });
 
   const result = await ingestEvents(client, candidates, { dryRun: false });
 
