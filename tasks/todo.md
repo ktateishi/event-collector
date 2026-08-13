@@ -414,26 +414,41 @@ Nav（`components/Nav.tsx`）に「設定」リンクを追加し、Task 19の�
 
 ---
 
-## Task 12: リマインドチェックロジック
+## Task 12: リマインドチェックロジック — **実装完了、実地検証待ち（2026-08-13）**
 
 **Description:** `events` テーブルの `registration_opens_at` / `deadline_at` と、
 `reminder_settings` の設定値を突き合わせ、対象イベントを再度LINE通知するロジックを実装する。
 同一リマインドを重複送信しない。
 
+**実装メモ・既知の制約（重要）**: `notifications` テーブルの `(event_id, type)` 一意制約
+（`supabase/migrations/0001_init.sql`）により、**1イベントにつきreminderは生涯1回のみ**
+しか送れない。1イベントが受付開始と締切の両方でリマインド対象になり得る場合や、
+複数会場でそれぞれ別タイミングのリマインドが必要な場合でも、最初の1回しか通知されない
+（MVP簡略化。マイグレーションのコメントで「複数段階のリマインドが必要になったら
+Task 12で見直す」と予告されていたが、今回はスコープを絞り単純な作りを維持した。
+運用してみて不足を感じたら、`notifications`に対象日付を持つ列を追加するなどして
+`(event_id, type, target_date)`単位の一意制約に見直す）。
+リマインド対象は`occurrences`（無ければイベント自身）の`registration_opens_at`/
+`deadline_at`のいずれかが「今日（JST）+設定日数後」ちょうどに一致するかで判定する
+（`lib/reminders.ts`）。送信件数はLINE Flexカルーセルの技術的上限（1メッセージ12バブル）
+に合わせて`MAX_REMINDER_EVENTS=12`でキャップし、超過分は取りこぼさず次回以降に回す。
+
 **Acceptance criteria:**
-- [ ] 設定された日数前に該当するイベントを検出できる
-- [ ] `notifications` テーブルに type=reminder のレコードが記録され、同一イベント・
-      同一リマインドタイミングでの重複送信を防ぐ
-- [ ] Task 8のPush送信ロジックを再利用する
+- [x] 設定された日数前に該当するイベントを検出できる — `lib/reminders.ts`の`selectEventsForReminder`
+- [x] `notifications` テーブルに type=reminder のレコードが記録され、重複送信を防ぐ
+      （制約の範囲は上記メモのとおり「同一イベントにつき1回」）
+- [x] Task 8のPush送信ロジックを再利用する — `lib/line.ts`の`sendBroadcast`、
+      `lib/notifications.ts`の`recordNotifications`をそのまま利用
 
 **Verification:**
+- [x] ユニットテスト7件追加（`reminders.test.ts`）、全体で171件パス。`npm run build`成功
 - [ ] `registration_opens_at` が「設定日数後」のテストイベントを作成し、
-      リマインドチェックを実行するとLINEに通知が届く
+      リマインドチェックを実行するとLINEに通知が届く（実地検証は別途実施）
 
 **Dependencies:** Task 8, Task 11
 
 **Files likely touched:**
-- `web/app/api/reminders/route.ts`
+- `web/app/api/reminders/route.ts`（新規）, `web/lib/reminders.ts`（新規）
 
 **Estimated scope:** M
 
