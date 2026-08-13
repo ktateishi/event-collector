@@ -51,6 +51,21 @@ describe("buildExtractionPrompt", () => {
     expect(prompt).toContain("1件");
   });
 
+  it("judges matched_via by whether the event content itself names the keyword, not by which search found it (Task 16)", () => {
+    const prompt = buildExtractionPrompt("エヴァンゲリオン", [
+      { url: "https://a.example/1", text: "本文A" },
+    ]);
+
+    // 実運用データで発見した誤分類パターン1: 略称・表記ゆれ（エヴァ/EVANGELION等）を
+    // 別物として expanded 扱いしてしまう
+    expect(prompt).toContain("略称");
+    expect(prompt).toContain("表記ゆれ");
+    // 実運用データで発見した誤分類パターン2: キャラクター名等の関連語検索で見つけても、
+    // 商品・イベント自体のタイトルにキーワードが明記されていればdirectにすべき
+    expect(prompt).toContain("綾波レイ");
+    expect(prompt).toContain("どの検索で見つかったか");
+  });
+
   it("asks for a fixed-set category and a one-line summary (LINE Flex Message用)", () => {
     const prompt = buildExtractionPrompt("エヴァンゲリオン", [
       { url: "https://a.example/1", text: "本文A" },
