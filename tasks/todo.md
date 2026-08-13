@@ -414,7 +414,7 @@ Nav（`components/Nav.tsx`）に「設定」リンクを追加し、Task 19の�
 
 ---
 
-## Task 12: リマインドチェックロジック — **実装完了、実地検証待ち（2026-08-13）**
+## Task 12: リマインドチェックロジック — **完了（2026-08-13）**
 
 **Description:** `events` テーブルの `registration_opens_at` / `deadline_at` と、
 `reminder_settings` の設定値を突き合わせ、対象イベントを再度LINE通知するロジックを実装する。
@@ -442,8 +442,10 @@ Task 12で見直す」と予告されていたが、今回はスコープを絞�
 
 **Verification:**
 - [x] ユニットテスト7件追加（`reminders.test.ts`）、全体で171件パス。`npm run build`成功
-- [ ] `registration_opens_at` が「設定日数後」のテストイベントを作成し、
-      リマインドチェックを実行するとLINEに通知が届く（実地検証は別途実施）
+- [x] `deadline_at` が現在の設定値（1日後）ちょうどのテストイベントを本番DBに作成し、
+      `/api/reminders` を実行して `{"daysBefore":1,"candidates":1,"sent":1}` を確認、
+      実際にLINEへ届いたことをユーザー本人が確認済み（2026-08-13）。
+      検証後、テストイベントと関連する `notifications` 行（`on delete cascade`）を削除済み
 
 **Dependencies:** Task 8, Task 11
 
