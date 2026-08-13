@@ -780,3 +780,49 @@ occurrences jsonb  -- 例:
   `web/app/api/cron/cleanup/route.ts`（新規）, `web/app/events/page.tsx`, `web/vercel.json`
 
 **Estimated scope:** M
+
+---
+
+## Phase 6: 情報源の追加（バックログ、2026-08-13追加）
+
+### Task 21: YouTube Data API連携をGemini収集パイプラインに統合 — **完了（2026-08-13）**
+
+**Description:** `web/lib/youtube.ts` と `web/app/api/search/youtube/route.ts` は、
+Task 5でVertex AI Gemini + Google検索グラウンディング方式に全面刷新される前の
+v1設計（`daily-routine.md`ベース）の名残で、これまでどこからも呼ばれていなかった
+（実装は残っているが未使用のまま放置されていた）。ユーザーからの指摘で発覚。
+`docs/spec/event-collector-spec.md`には「YouTube Data API v3（公式・無料枠）」を
+使うと書かれており、実態と食い違っていた。この差分を埋めるため、YouTube検索を
+実際に収集パイプラインへ統合する。
+
+**採用方針（2026-08-13確定）**: YouTube動画ページ自体をfetchしてHTMLスクレイピングは
+しない。YouTubeは大部分がJS描画のSPAで、素朴なfetch+タグ除去では概要欄が
+拾えないことが多く不安定なため。代わりにYouTube Data APIが返す構造化データ
+（タイトル・概要欄・サムネイル）をそのまま「ページ」としてGemini抽出に渡す
+（`lib/youtube.ts`の`youtubeResultsToPages`）。既存の3段階パイプライン
+（検索→取得→抽出）とは独立に、`collectEventsForKeyword`内で
+Google検索グラウンディング由来のページと並行取得し、同じ`extractEventsFromPages`
+に合流させる。YouTube専用の特別扱い（別プロンプト等）はせず、既存パイプラインへの
+「合流」に留めた。
+
+**Acceptance criteria:**
+- [x] `YOUTUBE_API_KEY`が設定されていれば、キーワードごとにYouTube検索結果が
+      収集パイプラインに合流し、他ソースと同様に構造化抽出される
+- [x] `YOUTUBE_API_KEY`が未設定でも収集全体は止まらない（YouTubeソースのみスキップ）
+- [x] YouTube検索自体が失敗（クォータ超過等）しても、他ソースの収集結果は失われない
+- [x] Google検索グラウンディングが0件でも、YouTube単独の結果があれば抽出が実行される
+
+**Verification:**
+- [x] ユニットテスト追加（`youtube.test.ts`+3件、`gemini.test.ts`+4件）、全体で178件パス。
+      `npm run build`成功
+- [ ] 本番で`YOUTUBE_API_KEY`設定後、実際にYouTube動画からイベントが収集されることを確認
+      （ユーザー本人による`YOUTUBE_API_KEY`のVercel環境変数登録待ち）
+
+**Dependencies:** Task 5
+
+**Files likely touched:**
+- `web/lib/youtube.ts`（`description`/`thumbnailUrl`追加、`youtubeResultsToPages`新規）,
+  `web/lib/gemini.ts`（YouTube結果の合流）, `web/app/api/cron/collect/route.ts`
+  （`YOUTUBE_API_KEY`を渡す）, `web/.env.example`
+
+**Estimated scope:** S
