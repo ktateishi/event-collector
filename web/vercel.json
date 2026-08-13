@@ -5,6 +5,10 @@
       "schedule": "0 22 * * *"
     },
     {
+      "path": "/api/reminders",
+      "schedule": "10 22 * * *"
+    },
+    {
       "path": "/api/cron/cleanup",
       "schedule": "0 23 * * *"
     }
