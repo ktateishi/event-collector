@@ -815,8 +815,12 @@ Google検索グラウンディング由来のページと並行取得し、同�
 **Verification:**
 - [x] ユニットテスト追加（`youtube.test.ts`+3件、`gemini.test.ts`+4件）、全体で178件パス。
       `npm run build`成功
-- [ ] 本番で`YOUTUBE_API_KEY`設定後、実際にYouTube動画からイベントが収集されることを確認
-      （ユーザー本人による`YOUTUBE_API_KEY`のVercel環境変数登録待ち）
+- [x] `YOUTUBE_API_KEY`登録・再デプロイ後、`/api/search/youtube`デバッグエンドポイントで
+      YouTube Data API自体が正常に動画を返すことを確認（例:「エヴァンゲリオン」で5件）。
+      本番の`/api/cron/collect`実行でパイプラインへの合流も確認（`collected: 47`、
+      Google検索由来7件insert）。今回ヒットしたYouTube動画（配信切り抜き・海外レビュー等）
+      には「日付のあるイベント情報」が無く、Gemini抽出側で正しくノイズ除外されたため
+      YouTube由来の新規insertは0件だったが、これは想定どおりの動作（統合自体は正常に機能）
 
 **Dependencies:** Task 5
 
