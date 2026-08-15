@@ -61,14 +61,17 @@ const EVENT_RESPONSE_SCHEMA = {
 export async function extractEventsFromPages(
   env: GeminiEnv,
   keyword: string,
-  pages: { url: string; text: string; imageUrl?: string }[]
+  pages: { url: string; text: string; imageUrl?: string }[],
+  excludedTitles: string[] = []
 ): Promise<CandidateEvent[]> {
   if (pages.length === 0) {
     return [];
   }
 
   const data = await callGenerateContent(env, {
-    contents: [{ role: "user", parts: [{ text: buildExtractionPrompt(keyword, pages) }] }],
+    contents: [
+      { role: "user", parts: [{ text: buildExtractionPrompt(keyword, pages, excludedTitles) }] },
+    ],
     generationConfig: {
       responseMimeType: "application/json",
       responseSchema: EVENT_RESPONSE_SCHEMA,

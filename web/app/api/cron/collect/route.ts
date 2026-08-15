@@ -4,6 +4,7 @@ import { listKeywords } from "@/lib/keywords";
 import { collectEventsForKeyword } from "@/lib/gemini";
 import { ingestEvents, type CandidateEvent } from "@/lib/ingest";
 import { runDailyNotify } from "@/lib/notify";
+import { listRecentExcludedExamples } from "@/lib/excluded-examples";
 
 export const maxDuration = 300;
 
@@ -60,6 +61,9 @@ export async function GET(request: Request) {
   const geminiEnv = getGeminiEnv();
   // 未設定でも収集全体は止めない（Task 21、v1からの既存方針を踏襲）
   const youtubeApiKey = process.env.YOUTUBE_API_KEY;
+  // ユーザーが「不要」とフラグ付けした実例を、抽出プロンプトへの負例として渡す
+  // （不要イベントの除外機構、SPEC.md参照）
+  const excludedTitles = await listRecentExcludedExamples(client);
 
   // キーワードごとの収集は互いに独立しているため並列実行する。
   // 逐次実行だとキーワード数に比例して合計時間が伸び、maxDuration(300秒)を
@@ -67,7 +71,12 @@ export async function GET(request: Request) {
   // 並列化すれば合計時間は「最も遅い1キーワード分」で済み、件数が増えても安定する
   const settled = await Promise.allSettled(
     keywords.map(async ({ keyword }) => {
-      const found = await collectEventsForKeyword(geminiEnv, keyword, youtubeApiKey);
+      const found = await collectEventsForKeyword(
+        geminiEnv,
+        keyword,
+        youtubeApiKey,
+        excludedTitles
+      );
       // どの登録キーワードのために収集したかを記録する（カテゴリ分け用、Task 17）。
       // matched_keywordは「実際に一致した語」で拡張語が入りうるため別に持つ
       return found.map((event) => ({ ...event, source_keyword: keyword }));

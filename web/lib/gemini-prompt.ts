@@ -52,15 +52,24 @@ export function buildExpansionSearchPrompt(keyword: string): string {
  */
 export function buildExtractionPrompt(
   keyword: string,
-  pages: { url: string; text: string }[]
+  pages: { url: string; text: string }[],
+  excludedTitles: string[] = []
 ): string {
   const pagesBlock = pages
     .map((p, i) => `### ページ番号 ${i + 1}\nURL: ${p.url}\n本文:\n${p.text}`)
     .join("\n\n");
 
+  const exclusionBlock =
+    excludedTitles.length === 0
+      ? ""
+      : `\n## 除外すべき情報（重要）\n\nユーザーが過去に「不要」と判定した実例です。これらと
+同種の内容（同じような商品発売情報等）は抽出しないでください:\n${excludedTitles
+          .map((title) => `- ${title}`)
+          .join("\n")}\n`;
+
   return `あなたはイベント情報抽出アシスタントです。登録キーワード「${keyword}」に関連して
 収集した以下のWebページ本文から、日付のあるイベント情報を抽出してください。
-
+${exclusionBlock}
 ## 「日付のあるイベント情報」の定義
 
 開催日・受付開始日時・締切日時のいずれか1つ以上が本文中に明確に書かれているもの。

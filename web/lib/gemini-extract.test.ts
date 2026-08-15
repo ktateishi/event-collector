@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { mockCallGenerateContent } = vi.hoisted(() => ({
   mockCallGenerateContent: vi.fn(),
@@ -16,6 +16,26 @@ const env = {
 };
 
 describe("extractEventsFromPages", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("passes excludedTitles through to the extraction prompt", async () => {
+    mockCallGenerateContent.mockResolvedValue({
+      candidates: [{ content: { parts: [{ text: JSON.stringify({ events: [] }) }] } }],
+    });
+
+    await extractEventsFromPages(
+      env,
+      "鬼滅の刃",
+      [{ url: "https://kimetsu.com/1", text: "本文" }],
+      ["フィギュア発売"]
+    );
+
+    const [, body] = mockCallGenerateContent.mock.calls[0];
+    expect(body.contents[0].parts[0].text).toContain("フィギュア発売");
+  });
+
   it("returns an empty array without calling Vertex AI when there are no pages", async () => {
     const result = await extractEventsFromPages(env, "鬼滅の刃", []);
 

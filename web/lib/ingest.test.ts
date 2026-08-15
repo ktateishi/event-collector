@@ -9,6 +9,8 @@ type ExistingRow = {
   category?: string;
   summary?: string;
   image_url?: string;
+  excluded_at?: string;
+  excluded_reason?: string;
 };
 
 function fakeClient(existingRows: ExistingRow[]) {
@@ -158,6 +160,72 @@ describe("ingestEvents", () => {
     expect(updateCalls[0].payload.category).toBe("movie");
     expect(updateCalls[0].payload.summary).toBe("既存の要約");
     expect(updateCalls[0].payload.image_url).toBe("https://kimetsu.com/existing.jpg");
+  });
+
+  it("auto-excludes a newly inserted event whose category is collab", async () => {
+    const { client, insertCalls } = fakeClient([]);
+
+    const collabCandidate: CandidateEvent = { ...validCandidate, category: "collab" };
+
+    await ingestEvents(client, [collabCandidate], { dryRun: false });
+
+    expect(insertCalls[0].excluded_reason).toBe("category");
+    expect(insertCalls[0].excluded_at).toBeTruthy();
+  });
+
+  it("does not exclude a newly inserted event whose category is not collab", async () => {
+    const { client, insertCalls } = fakeClient([]);
+
+    const movieCandidate: CandidateEvent = { ...validCandidate, category: "movie" };
+
+    await ingestEvents(client, [movieCandidate], { dryRun: false });
+
+    expect(insertCalls[0].excluded_at).toBeUndefined();
+    expect(insertCalls[0].excluded_reason).toBeUndefined();
+  });
+
+  it("auto-excludes an existing event when its category is backfilled to collab", async () => {
+    const { client, updateCalls } = fakeClient([
+      {
+        id: "existing-id",
+        title: "鬼滅の刃 ライブイベント",
+        occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
+      },
+    ]);
+
+    const collabCandidate: CandidateEvent = { ...validCandidate, category: "collab" };
+
+    await ingestEvents(client, [collabCandidate], { dryRun: false });
+
+    expect(updateCalls).toHaveLength(1);
+    expect(updateCalls[0].payload.excluded_reason).toBe("category");
+    expect(updateCalls[0].payload.excluded_at).toBeTruthy();
+  });
+
+  it("never un-excludes an already-excluded event, even if its category is not collab", async () => {
+    const { client, updateCalls } = fakeClient([
+      {
+        id: "existing-id",
+        title: "鬼滅の刃 ライブイベント",
+        occurrences: [{ label: "東京会場", event_date: "2026-09-15" }],
+        category: "movie",
+        excluded_at: "2026-08-01T00:00:00Z",
+        excluded_reason: "manual",
+      },
+    ]);
+
+    const withNewVenue: CandidateEvent = {
+      ...validCandidate,
+      occurrences: [
+        { label: "東京会場", event_date: "2026-09-15" },
+        { label: "大阪会場", event_date: "2026-10-01" },
+      ],
+    };
+
+    await ingestEvents(client, [withNewVenue], { dryRun: false });
+
+    expect(updateCalls[0].payload.excluded_at).toBe("2026-08-01T00:00:00Z");
+    expect(updateCalls[0].payload.excluded_reason).toBe("manual");
   });
 
   it("skips duplicates within the same batch too", async () => {

@@ -31,7 +31,8 @@ async function collectYoutubePages(apiKey: string, keyword: string): Promise<Ext
 export async function collectEventsForKeyword(
   env: GeminiEnv,
   keyword: string,
-  youtubeApiKey?: string
+  youtubeApiKey?: string,
+  excludedTitles: string[] = []
 ): Promise<CandidateEvent[]> {
   const urls = await searchGroundingUrls(env, keyword);
 
@@ -51,5 +52,5 @@ export async function collectEventsForKeyword(
     return [];
   }
 
-  return extractEventsFromPages(env, keyword, pages);
+  return extractEventsFromPages(env, keyword, pages, excludedTitles);
 }

@@ -13,6 +13,7 @@ import {
   URGENCY_LABEL,
 } from "@/components/badgeStyles";
 import { todayInJst } from "@/lib/today";
+import { ExcludeButton } from "@/components/ExcludeButton";
 
 export const dynamic = "force-dynamic";
 
@@ -39,12 +40,20 @@ export default async function EventDetailPage({
 
   return (
     <main className="flex flex-col gap-6">
-      <Link
-        href="/events"
-        className="w-fit text-sm font-medium text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-500"
-      >
-        ← イベント一覧に戻る
-      </Link>
+      <div className="flex items-center justify-between">
+        <Link
+          href="/events"
+          className="w-fit text-sm font-medium text-slate-500 hover:text-brand-600 dark:text-slate-400 dark:hover:text-brand-500"
+        >
+          ← イベント一覧に戻る
+        </Link>
+        <ExcludeButton
+          eventId={event.id}
+          label="このイベントを不要にする"
+          redirectAfter="/events"
+          className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:border-red-300 hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50 dark:border-slate-700 dark:text-slate-400 dark:hover:border-red-500/40 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+        />
+      </div>
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-wrap items-center gap-1.5">

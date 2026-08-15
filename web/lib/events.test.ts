@@ -51,7 +51,9 @@ describe("listEvents", () => {
     const client = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: [sampleEvent], error: null }),
+          is: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: [sampleEvent], error: null }),
+          }),
         }),
       }),
     } as unknown as SupabaseClient;
@@ -62,11 +64,28 @@ describe("listEvents", () => {
     expect(client.from).toHaveBeenCalledWith("events");
   });
 
+  it("excludes events whose excluded_at is set (不要フラグ、Task: 除外機構)", async () => {
+    const isMock = vi.fn().mockReturnValue({
+      order: vi.fn().mockResolvedValue({ data: [sampleEvent], error: null }),
+    });
+    const client = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ is: isMock }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await listEvents(client);
+
+    expect(isMock).toHaveBeenCalledWith("excluded_at", null);
+  });
+
   it("throws when Supabase returns an error", async () => {
     const client = {
       from: vi.fn().mockReturnValue({
         select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } }),
+          is: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } }),
+          }),
         }),
       }),
     } as unknown as SupabaseClient;

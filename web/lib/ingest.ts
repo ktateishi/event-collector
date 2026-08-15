@@ -44,7 +44,28 @@ type ExistingEvent = {
   category?: EventCategory;
   summary?: string;
   image_url?: string;
+  excluded_at?: string;
+  excluded_reason?: string;
 };
+
+/**
+ * category=collabのイベントを自動除外する（不要情報の除外機構、2026-08-13、SPEC.md参照）。
+ * 既にexcluded_atが設定済み（手動フラグ含む）なら絶対に上書きしない
+ * （自動判定で「不要ではない」に戻すことはしない）。
+ */
+function excludedFieldsFor(
+  category: EventCategory | undefined,
+  existingExcludedAt: string | undefined,
+  existingExcludedReason: string | undefined
+): { excluded_at?: string; excluded_reason?: string } {
+  if (existingExcludedAt) {
+    return { excluded_at: existingExcludedAt, excluded_reason: existingExcludedReason };
+  }
+  if (category === "collab") {
+    return { excluded_at: new Date().toISOString(), excluded_reason: "category" };
+  }
+  return {};
+}
 
 const VALID_MATCHED_VIA = new Set(["direct", "expanded"]);
 const VALID_CONFIDENCE = new Set(["confirmed", "exploratory"]);
@@ -81,7 +102,7 @@ export async function ingestEvents(
 
   const { data: existingRows, error } = await client
     .from("events")
-    .select("id, title, occurrences, category, summary, image_url");
+    .select("id, title, occurrences, category, summary, image_url, excluded_at, excluded_reason");
 
   if (error) {
     throw new Error(error.message);
@@ -126,10 +147,16 @@ export async function ingestEvents(
       const nextCategory = existing.category ?? candidate.category;
       const nextSummary = existing.summary ?? candidate.summary;
       const nextImageUrl = existing.image_url ?? candidate.image_url;
+      const nextExcluded = excludedFieldsFor(
+        nextCategory,
+        existing.excluded_at,
+        existing.excluded_reason
+      );
       const backfilled =
         nextCategory !== existing.category ||
         nextSummary !== existing.summary ||
-        nextImageUrl !== existing.image_url;
+        nextImageUrl !== existing.image_url ||
+        nextExcluded.excluded_at !== existing.excluded_at;
 
       if (addedCount === 0 && !backfilled) {
         result.skipped.push({ candidate, reason: "duplicate" });
@@ -149,6 +176,7 @@ export async function ingestEvents(
           category: nextCategory,
           summary: nextSummary,
           image_url: nextImageUrl,
+          ...nextExcluded,
         })
         .eq("id", existing.id);
 
@@ -161,6 +189,8 @@ export async function ingestEvents(
       existing.category = nextCategory;
       existing.summary = nextSummary;
       existing.image_url = nextImageUrl;
+      existing.excluded_at = nextExcluded.excluded_at;
+      existing.excluded_reason = nextExcluded.excluded_reason;
       result.merged.push({ title: candidate.title, addedOccurrences: addedCount });
       continue;
     }
@@ -175,6 +205,7 @@ export async function ingestEvents(
       ...candidate,
       occurrences: incomingOccurrences,
       event_date: earliestDate(incomingOccurrences) ?? candidate.event_date,
+      ...excludedFieldsFor(candidate.category, undefined, undefined),
     };
 
     const { data, error: insertError } = await client

@@ -21,6 +21,9 @@ export type Event = {
   summary?: string;
   /** 収集済みページのog:imageから抽出した実画像（あれば最優先で使う） */
   image_url?: string;
+  /** 不要イベントの除外機構（SPEC.md）。nullなら表示対象 */
+  excluded_at?: string;
+  excluded_reason?: string;
   created_at: string;
 };
 
@@ -84,10 +87,16 @@ export async function getEventCount(client: SupabaseClient): Promise<number> {
   return count ?? 0;
 }
 
+/**
+ * 除外済み（excluded_at設定済み）イベントを一律で除く（不要イベントの除外機構、SPEC.md）。
+ * イベント一覧・LINE新着選定（selectEventsToNotify）・リマインド判定（selectEventsForReminder）
+ * すべてこの関数経由でイベントを取得するため、取得層で一元的にフィルタする
+ */
 export async function listEvents(client: SupabaseClient): Promise<Event[]> {
   const { data, error } = await client
     .from("events")
     .select("*")
+    .is("excluded_at", null)
     .order("created_at", { ascending: false });
 
   if (error) {

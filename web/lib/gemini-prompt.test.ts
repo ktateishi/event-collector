@@ -51,6 +51,26 @@ describe("buildExtractionPrompt", () => {
     expect(prompt).toContain("1件");
   });
 
+  it("embeds excluded example titles as negative examples when given (不要情報の除外機構)", () => {
+    const prompt = buildExtractionPrompt(
+      "エヴァンゲリオン",
+      [{ url: "https://a.example/1", text: "本文A" }],
+      ["フィギュア発売", "ポスター発売"]
+    );
+
+    expect(prompt).toContain("フィギュア発売");
+    expect(prompt).toContain("ポスター発売");
+    expect(prompt).toContain("除外");
+  });
+
+  it("omits the exclusion section when no excluded titles are given", () => {
+    const prompt = buildExtractionPrompt("エヴァンゲリオン", [
+      { url: "https://a.example/1", text: "本文A" },
+    ]);
+
+    expect(prompt).not.toContain("除外すべき情報");
+  });
+
   it("judges matched_via by whether the event content itself names the keyword, not by which search found it (Task 16)", () => {
     const prompt = buildExtractionPrompt("エヴァンゲリオン", [
       { url: "https://a.example/1", text: "本文A" },

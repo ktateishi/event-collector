@@ -25,7 +25,9 @@ function fakeClient(events: Event[], notifiedEventIds: string[]) {
     if (table === "events") {
       return {
         select: vi.fn().mockReturnValue({
-          order: vi.fn().mockResolvedValue({ data: events, error: null }),
+          is: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: events, error: null }),
+          }),
         }),
       };
     }

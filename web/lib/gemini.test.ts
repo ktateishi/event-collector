@@ -44,9 +44,12 @@ describe("collectEventsForKeyword", () => {
     const result = await collectEventsForKeyword(env, "鬼滅の刃");
 
     expect(mockSearchGroundingUrls).toHaveBeenCalledWith(env, "鬼滅の刃");
-    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(env, "鬼滅の刃", [
-      { url: "https://a.example", text: "本文A" },
-    ]);
+    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(
+      env,
+      "鬼滅の刃",
+      [{ url: "https://a.example", text: "本文A" }],
+      []
+    );
     expect(result).toEqual([{ title: "event" }]);
   });
 
@@ -78,14 +81,19 @@ describe("collectEventsForKeyword", () => {
     await collectEventsForKeyword(env, "鬼滅の刃", "fake-youtube-key");
 
     expect(mockSearchYoutube).toHaveBeenCalledWith("fake-youtube-key", "鬼滅の刃");
-    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(env, "鬼滅の刃", [
-      { url: "https://a.example", text: "本文A" },
-      {
-        url: "https://www.youtube.com/watch?v=abc123",
-        text: "配信タイトル\n配信の説明",
-        imageUrl: "https://i.ytimg.com/vi/abc123/hqdefault.jpg",
-      },
-    ]);
+    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(
+      env,
+      "鬼滅の刃",
+      [
+        { url: "https://a.example", text: "本文A" },
+        {
+          url: "https://www.youtube.com/watch?v=abc123",
+          text: "配信タイトル\n配信の説明",
+          imageUrl: "https://i.ytimg.com/vi/abc123/hqdefault.jpg",
+        },
+      ],
+      []
+    );
   });
 
   it("skips YouTube search entirely when no API key is given", async () => {
@@ -105,9 +113,12 @@ describe("collectEventsForKeyword", () => {
     const result = await collectEventsForKeyword(env, "鬼滅の刃", "fake-youtube-key");
 
     expect(result).toEqual([{ title: "event" }]);
-    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(env, "鬼滅の刃", [
-      { url: "https://a.example", text: "本文A" },
-    ]);
+    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(
+      env,
+      "鬼滅の刃",
+      [{ url: "https://a.example", text: "本文A" }],
+      []
+    );
   });
 
   it("still extracts from YouTube-only results when web search grounding finds nothing", async () => {
@@ -128,5 +139,20 @@ describe("collectEventsForKeyword", () => {
 
     expect(result).toEqual([{ title: "event" }]);
     expect(mockFetchPageText).not.toHaveBeenCalled();
+  });
+
+  it("passes excludedTitles through to extraction (不要情報の除外機構)", async () => {
+    mockSearchGroundingUrls.mockResolvedValue(["https://a.example"]);
+    mockFetchPageText.mockResolvedValue({ url: "https://a.example", text: "本文A" });
+    mockExtractEventsFromPages.mockResolvedValue([]);
+
+    await collectEventsForKeyword(env, "鬼滅の刃", undefined, ["フィギュア発売"]);
+
+    expect(mockExtractEventsFromPages).toHaveBeenCalledWith(
+      env,
+      "鬼滅の刃",
+      [{ url: "https://a.example", text: "本文A" }],
+      ["フィギュア発売"]
+    );
   });
 });
