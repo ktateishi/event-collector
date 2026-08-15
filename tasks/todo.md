@@ -853,3 +853,51 @@ Google検索グラウンディング由来のページと並行取得し、同�
   （`YOUTUBE_API_KEY`を渡す）, `web/.env.example`
 
 **Estimated scope:** S
+
+---
+
+## Phase 7: 不要イベントの除外機構（バックログ、2026-08-15追加）
+
+### Task 22: 不要イベントの除外機構（自動除外 + 手動フラグ） — **完了（2026-08-15）**
+
+**Description:** フィギュア・ポスター等のグッズ発売情報がノイズになっていたため、
+ノイズ除外の機構を追加した。詳細仕様は[SPEC.md](../SPEC.md)参照
+（`/spec`コマンドで作成した本機能専用のミニスペック）。
+
+**やったこと**:
+1. **自動除外**: Gemini抽出時の`category`が`"collab"`（コラボ商品・グッズ・カフェ等）の
+   イベントは、収集時点で`excluded_at`/`excluded_reason="category"`を設定し、
+   一覧・LINE通知・リマインドの対象から外す（`lib/events.ts`の`listEvents`で一元的に
+   フィルタするため、消費側すべてに自動的に効く）。物理削除はしない
+2. **手動フラグ**: Web画面（一覧カード・詳細ページ）に「不要」ボタンを追加。押すと
+   `excluded_at`/`excluded_reason="manual"`を設定して非表示にし、同時にタイトルを
+   `excluded_examples`テーブルに蓄積する
+3. **学習フィードバック**: 蓄積した`excluded_examples`の直近10件を、Gemini抽出プロンプト
+   （`buildExtractionPrompt`）に負例として埋め込み、似たような不要情報を今後の収集でも
+   減らすようにした
+4. **既存データへの遡及適用**: 実装完了後、既存の`category="collab"`イベント28件
+   （手動フラグ済みの2件を除く）を一括で`excluded_at`設定した
+
+**Acceptance criteria:**
+- [x] `category = "collab"`のイベントは収集時点で一覧・通知から除外される
+- [x] Web画面から任意のイベントを「不要」としてフラグ付けでき、一覧・通知から非表示になる
+      （データは削除しない）
+- [x] 手動フラグの実例が今後の収集（Gemini抽出プロンプト）にフィードバックされる
+- [x] 既存収集済みデータにも遡及適用されている
+
+**Verification:**
+- [x] ユニットテスト19件追加、全体で193件パス。`npm run build`成功
+- [x] ブラウザで一覧カード・詳細ページ両方の「不要」ボタンの動作を確認
+      （件数減少、ページ遷移の有無、`excluded_examples`への記録を実データで確認）
+- [x] 既存28件への遡及適用を実行し、適用件数を確認
+
+**Dependencies:** Task 15（`category`分類の元になったLINE Flex Message機能）
+
+**Files likely touched:**
+- `supabase/migrations/0004_event_exclusion.sql`, `web/lib/excluded-examples.ts`（新規）,
+  `web/lib/ingest.ts`, `web/lib/events.ts`, `web/lib/gemini-prompt.ts`,
+  `web/lib/gemini-extract.ts`, `web/lib/gemini.ts`, `web/app/api/cron/collect/route.ts`,
+  `web/app/api/events/[id]/exclude/route.ts`（新規）, `web/components/ExcludeButton.tsx`（新規）,
+  `web/components/EventRow.tsx`, `web/app/events/[id]/page.tsx`
+
+**Estimated scope:** M
