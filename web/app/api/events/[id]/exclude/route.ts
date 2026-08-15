@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase";
-import { getEventById } from "@/lib/events";
+import { getEventById, restoreEvent } from "@/lib/events";
 import { addExcludedExample } from "@/lib/excluded-examples";
 
 /**
@@ -29,4 +29,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   await addExcludedExample(client, event.title, event.source_keyword);
 
   return NextResponse.json({ ok: true });
+}
+
+/** 「不要」フラグを取り消す（除外の取り消しUI用）。excluded_examplesの学習データは残す */
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const client = createServerSupabaseClient();
+
+  try {
+    await restoreEvent(client, id);
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "取り消しに失敗しました";
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
 }

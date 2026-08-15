@@ -106,6 +106,36 @@ export async function listEvents(client: SupabaseClient): Promise<Event[]> {
   return (data ?? []) as Event[];
 }
 
+/**
+ * 除外済みイベントの一覧（不要イベントの除外機構、SPEC.md）。
+ * 「不要」フラグの取り消しUIから使う
+ */
+export async function listExcludedEvents(client: SupabaseClient): Promise<Event[]> {
+  const { data, error } = await client
+    .from("events")
+    .select("*")
+    .not("excluded_at", "is", null)
+    .order("excluded_at", { ascending: false });
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []) as Event[];
+}
+
+/** 除外フラグを取り消し、一覧・通知の対象に戻す */
+export async function restoreEvent(client: SupabaseClient, id: string): Promise<void> {
+  const { error } = await client
+    .from("events")
+    .update({ excluded_at: null, excluded_reason: null })
+    .eq("id", id);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+}
+
 export async function getEventById(client: SupabaseClient, id: string): Promise<Event | null> {
   const { data, error } = await client.from("events").select("*").eq("id", id).maybeSingle();
 

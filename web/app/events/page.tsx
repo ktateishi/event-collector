@@ -51,6 +51,12 @@ export default async function EventsPage({
           >
             すべて表示
           </Link>
+          <Link
+            href="/events/excluded"
+            className="rounded-md px-3 py-1.5 font-medium text-slate-500 transition-colors hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+          >
+            非表示にしたイベント
+          </Link>
         </div>
       </div>
 

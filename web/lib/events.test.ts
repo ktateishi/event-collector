@@ -5,6 +5,8 @@ import {
   getEventCount,
   groupEventsByKeyword,
   listEvents,
+  listExcludedEvents,
+  restoreEvent,
   selectDeletableEventIds,
   type Event,
 } from "./events";
@@ -91,6 +93,64 @@ describe("listEvents", () => {
     } as unknown as SupabaseClient;
 
     await expect(listEvents(client)).rejects.toThrow("boom");
+  });
+});
+
+describe("listExcludedEvents", () => {
+  it("returns only events whose excluded_at is set, ordered by excluded_at descending", async () => {
+    const notMock = vi.fn().mockReturnValue({
+      order: vi.fn().mockResolvedValue({ data: [sampleEvent], error: null }),
+    });
+    const client = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({ not: notMock }),
+      }),
+    } as unknown as SupabaseClient;
+
+    const result = await listExcludedEvents(client);
+
+    expect(result).toEqual([sampleEvent]);
+    expect(notMock).toHaveBeenCalledWith("excluded_at", "is", null);
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const client = {
+      from: vi.fn().mockReturnValue({
+        select: vi.fn().mockReturnValue({
+          not: vi.fn().mockReturnValue({
+            order: vi.fn().mockResolvedValue({ data: null, error: { message: "boom" } }),
+          }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(listExcludedEvents(client)).rejects.toThrow("boom");
+  });
+});
+
+describe("restoreEvent", () => {
+  it("clears excluded_at and excluded_reason for the given event id", async () => {
+    const eqMock = vi.fn().mockResolvedValue({ error: null });
+    const updateMock = vi.fn().mockReturnValue({ eq: eqMock });
+    const client = { from: vi.fn().mockReturnValue({ update: updateMock }) } as unknown as SupabaseClient;
+
+    await restoreEvent(client, "event-1");
+
+    expect(client.from).toHaveBeenCalledWith("events");
+    expect(updateMock).toHaveBeenCalledWith({ excluded_at: null, excluded_reason: null });
+    expect(eqMock).toHaveBeenCalledWith("id", "event-1");
+  });
+
+  it("throws when Supabase returns an error", async () => {
+    const client = {
+      from: vi.fn().mockReturnValue({
+        update: vi.fn().mockReturnValue({
+          eq: vi.fn().mockResolvedValue({ error: { message: "boom" } }),
+        }),
+      }),
+    } as unknown as SupabaseClient;
+
+    await expect(restoreEvent(client, "event-1")).rejects.toThrow("boom");
   });
 });
 
