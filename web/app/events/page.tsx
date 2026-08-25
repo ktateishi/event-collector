@@ -5,6 +5,8 @@ import { categoryColorClass } from "@/lib/colors";
 import { Badge } from "@/components/Badge";
 import { EmptyState } from "@/components/EmptyState";
 import { EventRow } from "@/components/EventRow";
+import { VenueGroup } from "@/components/VenueGroup";
+import { clusterEventsByVenue } from "@/lib/venue-groups";
 import { todayInJst } from "@/lib/today";
 
 export const dynamic = "force-dynamic";
@@ -89,9 +91,17 @@ export default async function EventsPage({
               </span>
             </h2>
             <ul className="flex flex-col gap-2">
-              {group.events.map((event) => (
-                <EventRow key={event.id} event={event} today={today} />
-              ))}
+              {clusterEventsByVenue(group.events).map((cluster) =>
+                cluster.length === 1 ? (
+                  <EventRow key={cluster[0].id} event={cluster[0]} today={today} />
+                ) : (
+                  <VenueGroup
+                    key={cluster.map((e) => e.id).join("-")}
+                    events={cluster}
+                    today={today}
+                  />
+                )
+              )}
             </ul>
           </section>
         ))
