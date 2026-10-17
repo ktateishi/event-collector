@@ -15,7 +15,7 @@ export default async function HomePage() {
           event_collector
         </h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          見逃したくないイベント情報を毎日収集する
+          見逃したくないイベント情報を毎週収集する
         </p>
       </div>
 

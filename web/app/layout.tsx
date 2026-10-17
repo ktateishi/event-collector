@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata = {
   title: "event_collector",
-  description: "見逃したくないイベント情報を毎日収集する",
+  description: "見逃したくないイベント情報を毎週収集する",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

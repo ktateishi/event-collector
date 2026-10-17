@@ -71,7 +71,7 @@ export default async function EventsPage({
       {groups.length === 0 ? (
         <EmptyState
           title="まだイベントがありません"
-          description="キーワードを登録すると、毎朝自動で収集が始まります。"
+          description="キーワードを登録すると、毎週月曜の朝に自動で収集が始まります。"
           action={
             <Link
               href="/keywords"

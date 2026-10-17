@@ -13,7 +13,7 @@ export default async function KeywordsPage() {
       <div>
         <h1 className="text-xl font-bold text-slate-900 dark:text-slate-100">キーワード管理</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          登録したキーワードをもとに毎朝イベントを収集します。
+          登録したキーワードをもとに毎週月曜の朝にイベントを収集します。
         </p>
       </div>
       <KeywordManager initialKeywords={keywords} />
