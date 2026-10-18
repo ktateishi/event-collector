@@ -24,6 +24,14 @@ async function getAccessToken(serviceAccountKeyJson: string): Promise<string> {
 }
 
 /**
+ * Gemini 3系モデルはリージョン別エンドポイント（us-central1等）では404になり、
+ * locationを"global"にする必要がある（実測済み）。globalのホストはリージョン接頭辞を持たない。
+ */
+function vertexHost(location: string): string {
+  return location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
+}
+
+/**
  * Vertex AIのgenerateContentを呼ぶ共通の低レベル関数。
  * 検索フェーズ(gemini-search.ts)・抽出フェーズ(gemini-extract.ts)の両方から使う。
  */
@@ -33,7 +41,7 @@ export async function callGenerateContent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const accessToken = await getAccessToken(env.serviceAccountKeyJson);
-  const url = `https://${env.location}-aiplatform.googleapis.com/v1/projects/${env.projectId}/locations/${env.location}/publishers/google/models/${env.model}:generateContent`;
+  const url = `https://${vertexHost(env.location)}/v1/projects/${env.projectId}/locations/${env.location}/publishers/google/models/${env.model}:generateContent`;
 
   const res = await fetch(url, {
     method: "POST",

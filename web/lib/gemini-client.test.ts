@@ -44,6 +44,28 @@ describe("callGenerateContent", () => {
     expect(JSON.parse(calledInit.body)).toEqual({ contents: [] });
   });
 
+  it("uses the regional host for a regional location", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await callGenerateContent(env, { contents: [] });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://us-central1-aiplatform.googleapis.com/v1/projects/test-project/locations/us-central1/publishers/google/models/gemini-2.5-flash:generateContent"
+    );
+  });
+
+  it("uses the global host (no region prefix) for the global location (required by Gemini 3 models)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await callGenerateContent({ ...env, location: "global", model: "gemini-3.8-flash" }, { contents: [] });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent"
+    );
+  });
+
   it("throws a friendly error on a non-ok response", async () => {
     vi.stubGlobal(
       "fetch",

@@ -949,3 +949,25 @@ JSON.parse失敗時にエラーメッセージとして秘密鍵の内容が誤�
 実行されるため、週1回になる。`/api/reminders`（毎日07:10 JST）と
 `/api/cron/cleanup`は日次のまま（締切リマインドは日単位で判定する必要があるため）。
 画面上の「毎朝/毎日」の文言も「毎週」に更新した。
+
+## Gemini 2.5 廃止対応（Gemini 3系への移行準備）
+
+2026-10-20にVertex AI上のGemini 2.5系が一般提供終了（既存プロジェクトは継続利用可）、
+2027-03-31に完全廃止されるとの通知を受け、移行を準備した。
+
+**インシデント原因の訂正**: 前回`gemini-3.7-flash`が404になったのは、アクセス制限ではなく
+`GCP_LOCATION=us-central1`のままだったため。Vertex AIでGemini 3系は`location=global`
+（ホスト`aiplatform.googleapis.com`）でのみ呼べる。実測（2026-10-18、本プロジェクト）:
+global×{3.8-flash, 3.7-flash, 3.5-flash, 3.5-flash-lite, 3.1-flash-lite}は
+検索グラウンディング・responseSchemaともに200、us-central1×同モデルはすべて404。
+
+**実施**:
+- `callGenerateContent`が`location="global"`のホストに対応（`gemini-client.ts`）
+- 抽出プロンプトの「開催期間が既に終了間近、または大部分が経過しているイベントは除外」を
+  「終了済みは除外、開催中は含める」に変更。Gemini 3系は旧文言を字義通り適用して
+  開催中の長期展示（例:「山脇百合子の仕事部屋」展）を落とした（同一ページ集合で
+  2.5=6件に対し3.8=3件）。新文言では2.5/3.8/3.7とも同等の件数に揃うことを確認
+
+**残作業（ユーザー操作）**: 本番の環境変数を`GCP_LOCATION=global`、
+`GEMINI_MODEL=gemini-3.8-flash`に変更して再デプロイ（Vercel CLIのトークンが失効しており、
+ログインはユーザー操作が必要なため未実施）。反映後は`/api/cron/collect`の実行結果で確認する。

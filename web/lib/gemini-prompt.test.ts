@@ -26,6 +26,15 @@ describe("buildExpansionSearchPrompt", () => {
 });
 
 describe("buildExtractionPrompt", () => {
+  it("keeps ongoing (mid-run) events and only excludes already-ended ones", () => {
+    // Gemini 3系は「大部分が経過したイベントは除外」を字義通りに適用し、開催中の長期展示まで
+    // 落としてしまう（実測）。開催中は含め、終了済みのみ除外する指示であることを固定する
+    const prompt = buildExtractionPrompt("ジブリ", [{ url: "https://a.example/1", text: "本文" }]);
+
+    expect(prompt).toContain("開催中のイベント（会期の途中のもの）は含める");
+    expect(prompt).not.toContain("大部分が経過している");
+  });
+
   it("embeds each page's URL and text with a page number, and the keyword", () => {
     const prompt = buildExtractionPrompt("鬼滅の刃", [
       { url: "https://a.example/1", text: "本文A" },
