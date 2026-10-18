@@ -66,6 +66,17 @@ describe("callGenerateContent", () => {
     );
   });
 
+  it("forces the global endpoint for Gemini 3 models even if location is regional (avoids the 404 outage)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, status: 200, json: async () => ({}) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await callGenerateContent({ ...env, location: "us-central1", model: "gemini-3.8-flash" }, { contents: [] });
+
+    expect(fetchMock.mock.calls[0][0]).toBe(
+      "https://aiplatform.googleapis.com/v1/projects/test-project/locations/global/publishers/google/models/gemini-3.8-flash:generateContent"
+    );
+  });
+
   it("throws a friendly error on a non-ok response", async () => {
     vi.stubGlobal(
       "fetch",

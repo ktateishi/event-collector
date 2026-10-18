@@ -968,6 +968,7 @@ global×{3.8-flash, 3.7-flash, 3.5-flash, 3.5-flash-lite, 3.1-flash-lite}は
   開催中の長期展示（例:「山脇百合子の仕事部屋」展）を落とした（同一ページ集合で
   2.5=6件に対し3.8=3件）。新文言では2.5/3.8/3.7とも同等の件数に揃うことを確認
 
-**残作業（ユーザー操作）**: 本番の環境変数を`GCP_LOCATION=global`、
-`GEMINI_MODEL=gemini-3.8-flash`に変更して再デプロイ（Vercel CLIのトークンが失効しており、
-ログインはユーザー操作が必要なため未実施）。反映後は`/api/cron/collect`の実行結果で確認する。
+**環境変数**: ユーザーが本番の`GEMINI_MODEL=gemini-3.8-flash`に変更（Vercel CLIのトークン失効のため
+ユーザー操作）。`GCP_LOCATION`の変更漏れによる再発防止として、`gemini-3`始まりのモデルは
+設定のlocationに関わらず`global`で呼ぶようコードで保証した。反映後は`/api/cron/collect`の
+実行結果で確認する。

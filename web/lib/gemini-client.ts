@@ -31,6 +31,12 @@ function vertexHost(location: string): string {
   return location === "global" ? "aiplatform.googleapis.com" : `${location}-aiplatform.googleapis.com`;
 }
 
+// GEMINI_MODELだけ変えてGCP_LOCATIONの変更を忘れると、収集が黙って止まる（過去に11日間停止した事故）。
+// Gemini 3系は設定のlocationに関わらずglobalで呼ぶ
+function effectiveLocation(env: GeminiEnv): string {
+  return env.model.startsWith("gemini-3") ? "global" : env.location;
+}
+
 /**
  * Vertex AIのgenerateContentを呼ぶ共通の低レベル関数。
  * 検索フェーズ(gemini-search.ts)・抽出フェーズ(gemini-extract.ts)の両方から使う。
@@ -41,7 +47,8 @@ export async function callGenerateContent(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): Promise<any> {
   const accessToken = await getAccessToken(env.serviceAccountKeyJson);
-  const url = `https://${vertexHost(env.location)}/v1/projects/${env.projectId}/locations/${env.location}/publishers/google/models/${env.model}:generateContent`;
+  const location = effectiveLocation(env);
+  const url = `https://${vertexHost(location)}/v1/projects/${env.projectId}/locations/${location}/publishers/google/models/${env.model}:generateContent`;
 
   const res = await fetch(url, {
     method: "POST",
